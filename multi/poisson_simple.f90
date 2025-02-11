@@ -12,6 +12,7 @@ program main
   integer :: nx, ny, nz ! this is the global grid
   integer :: comm_backend
   integer :: pr, pc
+  integer :: npx, npy, npz
   ! MPI variables
   integer :: rank, ranks, ierr
   integer :: localRank, localComm
@@ -28,6 +29,19 @@ program main
   integer :: planX, planY, planZ
   integer :: batchsize
   integer :: status
+  ! other variables (wavenumber, grid location)
+  real(8), allocatable :: x(:), kx(:)
+  real(8) :: dx,lx
+  integer :: i,j,k,il,jl,kl,ig,jg,kg
+  integer, parameter :: Mx = 2, My = 3, Mz = 4
+  real(8), device, allocatable :: kx_d(:)
+  real(8), parameter :: twopi = 8.0_8*atan(1.0_8)
+  ! workign arrays
+  complex(8), allocatable :: phi(:), ua(:,:,:)
+  complex(8), device, allocatable :: phi_d(:)
+  complex(8), pointer, device, contiguous :: work_d(:)
+
+
 
 
 
@@ -43,11 +57,12 @@ program main
 
   ! Define grid and decomposition
   ! hard coded, then from input
+  lx=twopi
   nx = 64
-  ny = 64
-  nz = 64
+  ny = nx
+  nz = nx
   pr = 2
-  pc = 2
+  pc = 1
   comm_backend = CUDECOMP_TRANSPOSE_COMM_MPI_P2P
 
   CHECK_CUDECOMP_EXIT(cudecompInit(handle, MPI_COMM_WORLD))
@@ -125,9 +140,51 @@ program main
   status = cufftPlan1D(planZ, nz, CUFFT_Z2Z, batchSize)
   if (status /= CUFFT_SUCCESS) write(*,*) rank, ': Error in creating Z plan'
 
+  ! define grid
+  ! to test the code (impose initial condition, can be then removed)
+  allocate(x(nx),kx(nx))
+  dx=lx/(nx-1)
+  x(1)=0.0d0
+  do i=2,nx
+      x(i)= x(i-1) + dx
+  enddo  
 
+  do i = 1, nx/2
+    kx(i) = (i-1)*twopi
+  enddo
+ ! allocate k_d on the device (later on remove and use OpenACC + managed memory?)
+ allocate(kx_d, source=kx)
 
+ ! allocate arrays
+ allocate(phi(max(nElemX, nElemY, nElemZ))) !largest among the pencil
+ allocate(phi_d, mold=phi) ! phi on device
+ allocate(ua(nx, piX%shape(2), piX%shape(3)))
+ CHECK_CUDECOMP_EXIT(cudecompMalloc(handle, grid_desc, work_d, nElemWork))
 
+! initialize phi and analytical solution
+! redo it in a simple way? 
+ block
+  complex(8), pointer :: phi3(:,:,:)
+  integer :: jl, kl, jg, kg
+  npx = piX%shape(1)
+  npy = piX%shape(2)
+  npz = piX%shape(3)
+  call c_f_pointer(c_loc(phi), phi3, [npx, npy, npz])
+
+  do kl = 1, npz
+     kg = piX%lo(3) + kl - 1
+     do jl = 1, npy
+        jg = piX%lo(2) + jl - 1
+        do i = 1, nx
+           phi3(i,jl,kl) = cmplx(sin(twoPi*Mx*x(i))*sin(twoPi*My*x(jg))*sin(twoPi*Mz*x(kg)),0.0)
+           ua(i,jl,kl) = -phi3(i,jl,kl)/(twoPi**2*(Mx**2 + My**2 + Mz**2))
+        enddo
+     enddo
+  enddo
+end block
+
+! H2D transfer
+phi_d = phi
 
 
 
