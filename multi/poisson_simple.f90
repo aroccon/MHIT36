@@ -57,7 +57,7 @@ program main
 
   ! Define grid and decomposition
   ! hard coded, then from input
-  lx=twopi
+  lx=1
   nx = 64
   ny = nx
   nz = nx
@@ -143,14 +143,17 @@ program main
   ! define grid
   ! to test the code (impose initial condition, can be then removed)
   allocate(x(nx),kx(nx))
-  dx=lx/(nx-1)
-  x(1)=0.0d0
-  do i=2,nx
-      x(i)= x(i-1) + dx
-  enddo  
+  dx=lx/(nx)
+  dx = lx/nx
+  do i = 1, nx
+     x(i) = dx*i
+  enddo
 
   do i = 1, nx/2
-    kx(i) = (i-1)*twopi
+    kx(i) = (i-1)*(twoPi/lx)
+  enddo
+  do i = nx/2+1, nx
+    kx(i) = (i-1-nx)*(twoPi/Lx)
   enddo
  ! allocate k_d on the device (later on remove and use OpenACC + managed memory?)
  allocate(kx_d, source=kx)
@@ -187,8 +190,102 @@ end block
 phi_d = phi
 
 
+! do the FFT3D forward 
+! phi(x,y,z) -> phi(kx,y,z)
+status = cufftExecZ2Z(planX, phi_d, phi_d, CUFFT_FORWARD)
+if (status /= CUFFT_SUCCESS) write(*,*) 'X forward error: ', status
+! phi(kx,y,z) -> phi(y,z,kx)
+CHECK_CUDECOMP_EXIT(cudecompTransposeXToY(handle, grid_desc, phi_d, phi_d, work_d, CUDECOMP_DOUBLE_COMPLEX))
+! phi(y,z,kx) -> phi(ky,z,kx)
+status = cufftExecZ2Z(planY, phi_d, phi_d, CUFFT_FORWARD)
+if (status /= CUFFT_SUCCESS) write(*,*) 'Y forward error: ', status
+! phi(ky,z,kx) -> phi(z,kx,ky)
+CHECK_CUDECOMP_EXIT(cudecompTransposeYToZ(handle, grid_desc, phi_d, phi_d, work_d, CUDECOMP_DOUBLE_COMPLEX))
+! phi(z,kx,ky) -> phi(kz,kx,ky)
+status = cufftExecZ2Z(planZ, phi_d, phi_d, CUFFT_FORWARD)
+if (status /= CUFFT_SUCCESS) write(*,*) 'Z forward error: ', status
+! END of FFT3D forward
 
 
-  call mpi_finalize(ierr)
+block
+  complex(8), device, pointer :: phi3d(:,:,:)
+  real(8) :: k2
+  integer :: il, jl, ig, jg
+  integer :: offsets(3), xoff, yoff
+  integer :: np(3)
+  np(piZ%order(1)) = piZ%shape(1)
+  np(piZ%order(2)) = piZ%shape(2)
+  np(piZ%order(3)) = piZ%shape(3)
+  call c_f_pointer(c_devloc(phi_d), phi3d, piZ%shape)
+
+  ! divide by -K**2, and normalize
+  offsets(piZ%order(1)) = piZ%lo(1) - 1
+  offsets(piZ%order(2)) = piZ%lo(2) - 1
+  offsets(piZ%order(3)) = piZ%lo(3) - 1
+
+  xoff = offsets(1)
+  yoff = offsets(2)
+  npx = np(1)
+  npy = np(2)
+  !$cuf kernel do (2)
+  do jl = 1, npy
+     do il = 1, npx
+        jg = yoff + jl
+        ig = xoff + il
+        do k = 1, nz
+           k2 = kx_d(ig)**2 + kx_d(jg)**2 + kx_d(k)**2
+           phi3d(k,il,jl) = -phi3d(k,il,jl)/k2/(nx*ny*nz)
+        enddo
+     enddo
+  enddo
+
+  ! specify mean (corrects division by zero wavenumber above)
+  if (xoff == 0 .and. yoff == 0) phi3d(1,1,1) = 0.0
+
+end block
+
+! phi(kz,kx,ky) -> phi(z,kx,ky)
+status = cufftExecZ2Z(planZ, phi_d, phi_d, CUFFT_INVERSE)
+if (status /= CUFFT_SUCCESS) write(*,*) 'Z inverse error: ', status
+! phi(z,kx,ky) -> phi(ky,z,kx)
+CHECK_CUDECOMP_EXIT(cudecompTransposeZToY(handle, grid_desc, phi_d, phi_d, work_d, CUDECOMP_DOUBLE_COMPLEX))
+! phi(ky,z,kx) -> phi(y,z,kx)
+status = cufftExecZ2Z(planY, phi_d, phi_d, CUFFT_INVERSE)
+if (status /= CUFFT_SUCCESS) write(*,*) 'Y inverse error: ', status
+! phi(y,z,kx) -> phi(kx,y,z)
+CHECK_CUDECOMP_EXIT(cudecompTransposeYToX(handle, grid_desc, phi_d, phi_d, work_d, CUDECOMP_DOUBLE_COMPLEX))
+! phi(kx,y,z) -> phi(x,y,z)
+status = cufftExecZ2Z(planX, phi_d, phi_d, CUFFT_INVERSE)
+if (status /= CUFFT_SUCCESS) write(*,*) 'X inverse error: ', status
+
+!D2H transfer
+phi = phi_d
+
+  ! check results
+
+block
+  complex(8), pointer :: phi3(:,:,:)
+  real(8) :: err, maxErr = -1.0
+  integer :: jl, kl
+  npx = piX%shape(1)
+  npy = piX%shape(2)
+  npz = piX%shape(3)
+  call c_f_pointer(c_loc(phi), phi3, [npx, npy, npz])
+
+
+  do kl = 1, npz
+     do jl = 1, npy
+        do i = 1, nx
+           err = abs(ua(i,jl,kl)-phi3(i,jl,kl))
+           if (err > maxErr) maxErr = err
+        enddo
+     enddo
+  enddo
+
+  write(*,"('[', i0, '] Max Error: ', e12.6)") rank, maxErr
+end block
+
+
+call mpi_finalize(ierr)
 
 end program main
