@@ -1,0 +1,32 @@
+# Compiler
+FC = mpif90
+
+# Paths (Modify if necessary)
+CUDECOMP_DIR  = /leonardo_scratch/large/userexternal/aroccon0/MHIT36_cuDEcomp/cuDecomp-main/build/
+
+# Compiler and Linker Flags
+FFLAGS = -cuda -I$(CUDECOMP_DIR)/include
+LDFLAGS = -L$(CUDECOMP_DIR)/lib -L/leonardo/prod/opt/compilers/cuda/12.3/none/lib64 -L/leonardo/prod/opt/compilers/cuda/12.3/none/compat -Wl,-rpath,/leonardo/prod/opt/compilers/cuda/12.3/none/compat
+LIBS = -lcudecomp_fort -lcudecomp -cuda
+
+# Source and Object Files
+SRCS = basic_usage.f90
+OBJS = $(SRCS:.f90=.o)
+
+# Output Executable
+TARGET = basic_usage
+
+# Default Rule
+all: $(TARGET)
+
+# Linking
+$(TARGET): $(OBJS)
+        $(FC) $(LDFLAGS) -o $(TARGET) $(OBJS) $(LIBS)
+
+# Compilation Rule
+%.o: %.f90
+	$(FC) $(FFLAGS) -c $< -o $@
+
+# Clean Rule
+clean:
+      	rm -f $(TARGET) $(OBJS) *.mod
