@@ -23,8 +23,10 @@ program main
   type(cudecompGridDescAutotuneOptions) :: options
   integer :: pdims(2) ! pr x pc pencils
   integer :: gdims(3) ! global grid dimensions
+  integer :: halo(3) ! halo extensions
+  integer :: halo_ext ! 0 no halo, 1 means 1 halo
   type(cudecompPencilInfo) :: piX, piY, piZ  ! size of the pencils in x- y- and z-configuration
-  integer(8) :: nElemX, nElemY, nElemZ, nElemWork
+  integer(8) :: nElemX, nElemY, nElemZ, nElemWork, nElemWork_halo
   ! cuFFT
   integer :: planX, planY, planZ
   integer :: batchsize
@@ -33,13 +35,14 @@ program main
   real(8), allocatable :: x(:), kx(:)
   real(8) :: dx,lx
   integer :: i,j,k,il,jl,kl,ig,jg,kg
-  integer, parameter :: Mx = 2, My = 3, Mz = 4
+  integer, parameter :: Mx = 1, My = 2, Mz = 3
   real(8), device, allocatable :: kx_d(:)
   real(8), parameter :: twopi = 8.0_8*atan(1.0_8)
   ! workign arrays
   complex(8), allocatable :: phi(:), ua(:,:,:)
   complex(8), device, allocatable :: phi_d(:)
   complex(8), pointer, device, contiguous :: work_d(:)
+  character(len=40) :: namefile
 
 
 
@@ -57,12 +60,13 @@ program main
 
   ! Define grid and decomposition
   ! hard coded, then from input
-  lx=1
+  lx=twopi
   nx = 64
   ny = nx
   nz = nx
   pr = 2
   pc = 1
+  halo_ext=1
   comm_backend = CUDECOMP_TRANSPOSE_COMM_MPI_P2P
 
   CHECK_CUDECOMP_EXIT(cudecompInit(handle, MPI_COMM_WORLD))
@@ -76,8 +80,11 @@ program main
   config%pdims = pdims
   gdims = [nx, ny, nz]
   config%gdims = gdims
+  halo = [0, halo_ext, halo_ext] ! no halo along x neeed because is periodic and in physical space i have x-pencil
   config%transpose_comm_backend = comm_backend
   config%transpose_axis_contiguous = .true.
+  ! for halo exchanges
+  config%halo_comm_backend = CUDECOMP_HALO_COMM_MPI
 
   !
   CHECK_CUDECOMP_EXIT(cudecompGridDescAutotuneOptionsSetDefaults(options))
@@ -101,7 +108,7 @@ program main
   ! Side note:  ! cudecompGetPencilInfo(handle, grid_desc, pinfo_x, 1, [1, 1, 1]) <- in this way the x-pencil also have halo elements
   ! If no halo regions are necessary, a NULL pointer can be provided in place of this array (or omitted)
   ! Pencil info in x-configuration present in PiX (shape,lo,hi,halo_extents,size)
-  CHECK_CUDECOMP_EXIT(cudecompGetPencilInfo(handle, grid_desc, piX, 1))
+  CHECK_CUDECOMP_EXIT(cudecompGetPencilInfo(handle, grid_desc, piX, 1, halo))
   nElemX = piX%size !<- number of total elments in x-configuratiion (including halo)
   ! Pencil info in Y-configuration present in PiY
   CHECK_CUDECOMP_EXIT(cudecompGetPencilInfo(handle, grid_desc, piY, 2))
@@ -110,7 +117,7 @@ program main
   CHECK_CUDECOMP_EXIT(cudecompGetPencilInfo(handle, grid_desc, piZ, 3))
   nElemZ = piZ%size
 
- ! get workspace size
+  ! Get workspace sizes
   CHECK_CUDECOMP_EXIT(cudecompGetTransposeWorkspaceSize(handle, grid_desc, nElemWork))
 
  ! show the order 1=x, 2=y, 3=z
@@ -143,17 +150,19 @@ program main
   ! define grid
   ! to test the code (impose initial condition, can be then removed)
   allocate(x(nx),kx(nx))
-  dx=lx/(nx)
   dx = lx/nx
-  do i = 1, nx
-     x(i) = dx*i
+  x(1)= 0
+  do i = 2, nx
+     x(i) = x(i-1) + dx
   enddo
+
+  write(*,*) "x",x
 
   do i = 1, nx/2
     kx(i) = (i-1)*(twoPi/lx)
   enddo
   do i = nx/2+1, nx
-    kx(i) = (i-1-nx)*(twoPi/Lx)
+    kx(i) = (i-1-nx)*(twoPi/LX)
   enddo
  ! allocate k_d on the device (later on remove and use OpenACC + managed memory?)
  allocate(kx_d, source=kx)
@@ -164,6 +173,8 @@ program main
  allocate(ua(nx, piX%shape(2), piX%shape(3)))
  CHECK_CUDECOMP_EXIT(cudecompMalloc(handle, grid_desc, work_d, nElemWork))
 
+ write(*,*) "size phi", max(nElemX, nElemY, nElemZ)
+
 ! initialize phi and analytical solution
 ! redo it in a simple way? 
  block
@@ -172,30 +183,39 @@ program main
   npx = piX%shape(1)
   npy = piX%shape(2)
   npz = piX%shape(3)
+  write(*,*) "npx,npy,npz",npx,npy,npz
   call c_f_pointer(c_loc(phi), phi3, [npx, npy, npz])
 
+
   do kl = 1, npz
-     kg = piX%lo(3) + kl - 1
+     kg = piX%lo(3) + kl - 1 
      do jl = 1, npy
-        jg = piX%lo(2) + jl - 1
+        jg = piX%lo(2) + jl - 1 
         do i = 1, nx
-           phi3(i,jl,kl) = cmplx(sin(twoPi*Mx*x(i))*sin(twoPi*My*x(jg))*sin(twoPi*Mz*x(kg)),0.0)
-           ua(i,jl,kl) = -phi3(i,jl,kl)/(twoPi**2*(Mx**2 + My**2 + Mz**2))
+           !phi3(i,jl,kl) = cmplx(sin(My*x(jg)),0.0)  ! RHS of Poisson equation
+           phi3(i,jl,kl) = cmplx(sin(Mx*x(i))*sin(My*x(jg))*sin(Mz*x(kg)),0.0)  ! RHS of Poisson equation
+           ua(i,jl,kl) = -phi3(i,jl,kl)/(Mx**2 + My**2 + Mz**2) ! Solution of Poisson equation
         enddo
      enddo
   enddo
 end block
 
-! H2D transfer
+! H2D transfer using CUDA
 phi_d = phi
 
+
+! input rhs
+write(namefile,'(a,i3.3,a)') 'rhs_',rank,'.dat'
+open(unit=55,file=namefile,form='unformatted',position='append',access='stream',status='new')
+write(55) real(phi, KIND=8)
+close(55)
 
 ! do the FFT3D forward 
 ! phi(x,y,z) -> phi(kx,y,z)
 status = cufftExecZ2Z(planX, phi_d, phi_d, CUFFT_FORWARD)
 if (status /= CUFFT_SUCCESS) write(*,*) 'X forward error: ', status
 ! phi(kx,y,z) -> phi(y,z,kx)
-CHECK_CUDECOMP_EXIT(cudecompTransposeXToY(handle, grid_desc, phi_d, phi_d, work_d, CUDECOMP_DOUBLE_COMPLEX))
+CHECK_CUDECOMP_EXIT(cudecompTransposeXToY(handle, grid_desc, phi_d, phi_d, work_d, CUDECOMP_DOUBLE_COMPLEX,Pix%halo_extents, [0,0,0]))
 ! phi(y,z,kx) -> phi(ky,z,kx)
 status = cufftExecZ2Z(planY, phi_d, phi_d, CUFFT_FORWARD)
 if (status /= CUFFT_SUCCESS) write(*,*) 'Y forward error: ', status
@@ -208,41 +228,41 @@ if (status /= CUFFT_SUCCESS) write(*,*) 'Z forward error: ', status
 
 
 block
-  complex(8), device, pointer :: phi3d(:,:,:)
-  real(8) :: k2
-  integer :: il, jl, ig, jg
-  integer :: offsets(3), xoff, yoff
-  integer :: np(3)
-  np(piZ%order(1)) = piZ%shape(1)
-  np(piZ%order(2)) = piZ%shape(2)
-  np(piZ%order(3)) = piZ%shape(3)
-  call c_f_pointer(c_devloc(phi_d), phi3d, piZ%shape)
-
-  ! divide by -K**2, and normalize
-  offsets(piZ%order(1)) = piZ%lo(1) - 1
-  offsets(piZ%order(2)) = piZ%lo(2) - 1
-  offsets(piZ%order(3)) = piZ%lo(3) - 1
-
-  xoff = offsets(1)
-  yoff = offsets(2)
-  npx = np(1)
-  npy = np(2)
-  !$cuf kernel do (2)
-  do jl = 1, npy
-     do il = 1, npx
-        jg = yoff + jl
-        ig = xoff + il
-        do k = 1, nz
-           k2 = kx_d(ig)**2 + kx_d(jg)**2 + kx_d(k)**2
-           phi3d(k,il,jl) = -phi3d(k,il,jl)/k2/(nx*ny*nz)
-        enddo
-     enddo
-  enddo
-
-  ! specify mean (corrects division by zero wavenumber above)
-  if (xoff == 0 .and. yoff == 0) phi3d(1,1,1) = 0.0
-
-end block
+   complex(8), device, pointer :: phi3d(:,:,:)
+   real(8) :: k2
+   integer :: il, jl, ig, jg
+   integer :: offsets(3), xoff, yoff
+   integer :: np(3)
+   np(piZ%order(1)) = piZ%shape(1)
+   np(piZ%order(2)) = piZ%shape(2)
+   np(piZ%order(3)) = piZ%shape(3)
+   call c_f_pointer(c_devloc(phi_d), phi3d, piZ%shape)
+ 
+   ! divide by -K**2, and normalize
+   offsets(piZ%order(1)) = piZ%lo(1) - 1
+   offsets(piZ%order(2)) = piZ%lo(2) - 1
+   offsets(piZ%order(3)) = piZ%lo(3) - 1
+ 
+   xoff = offsets(1)
+   yoff = offsets(2)
+   npx = np(1)
+   npy = np(2)
+   !$cuf kernel do (2)
+   do jl = 1, npy
+      do il = 1, npx
+         jg = yoff + jl
+         ig = xoff + il
+         do k = 1, nz
+            k2 = kx_d(ig)**2 + kx_d(jg)**2 + kx_d(k)**2
+            phi3d(k,il,jl) = -phi3d(k,il,jl)/k2/(nx*ny*nz)
+         enddo
+      enddo
+   enddo
+ 
+   ! specify mean (corrects division by zero wavenumber above)
+   if (xoff == 0 .and. yoff == 0) phi3d(1,1,1) = 0.0
+ 
+ end block
 
 ! phi(kz,kx,ky) -> phi(z,kx,ky)
 status = cufftExecZ2Z(planZ, phi_d, phi_d, CUFFT_INVERSE)
@@ -253,7 +273,7 @@ CHECK_CUDECOMP_EXIT(cudecompTransposeZToY(handle, grid_desc, phi_d, phi_d, work_
 status = cufftExecZ2Z(planY, phi_d, phi_d, CUFFT_INVERSE)
 if (status /= CUFFT_SUCCESS) write(*,*) 'Y inverse error: ', status
 ! phi(y,z,kx) -> phi(kx,y,z)
-CHECK_CUDECOMP_EXIT(cudecompTransposeYToX(handle, grid_desc, phi_d, phi_d, work_d, CUDECOMP_DOUBLE_COMPLEX))
+CHECK_CUDECOMP_EXIT(cudecompTransposeYToX(handle, grid_desc, phi_d, phi_d, work_d, CUDECOMP_DOUBLE_COMPLEX, [0,0,0], Pix%halo_extents))
 ! phi(kx,y,z) -> phi(x,y,z)
 status = cufftExecZ2Z(planX, phi_d, phi_d, CUFFT_INVERSE)
 if (status /= CUFFT_SUCCESS) write(*,*) 'X inverse error: ', status
@@ -261,7 +281,15 @@ if (status /= CUFFT_SUCCESS) write(*,*) 'X inverse error: ', status
 !D2H transfer
 phi = phi_d
 
-  ! check results
+! check results
+
+! output solution in a file
+write(namefile,'(a,i3.3,a)') 'phi_',rank,'.dat'
+open(unit=55,file=namefile,form='unformatted',position='append',access='stream',status='new')
+write(55) real(phi, KIND=8)
+close(55)
+
+
 
 block
   complex(8), pointer :: phi3(:,:,:)
@@ -273,8 +301,8 @@ block
   call c_f_pointer(c_loc(phi), phi3, [npx, npy, npz])
 
 
-  do kl = 1, npz
-     do jl = 1, npy
+  do kl = 1+halo_ext, npz-halo_ext
+     do jl = 1+halo_ext, npy-halo_ext
         do i = 1, nx
            err = abs(ua(i,jl,kl)-phi3(i,jl,kl))
            if (err > maxErr) maxErr = err
