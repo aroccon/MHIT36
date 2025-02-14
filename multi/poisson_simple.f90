@@ -41,7 +41,7 @@ program main
   ! workign arrays
   complex(8), allocatable :: phi(:), ua(:,:,:)
   complex(8), device, allocatable :: phi_d(:)
-  complex(8), pointer, device, contiguous :: work_d(:)
+  complex(8), pointer, device, contiguous :: work_d(:), work_halo_d(:)
   character(len=40) :: namefile
 
 
@@ -81,6 +81,7 @@ program main
   gdims = [nx, ny, nz]
   config%gdims = gdims
   halo = [0, halo_ext, halo_ext] ! no halo along x neeed because is periodic and in physical space i have x-pencil
+  ! for transpositions
   config%transpose_comm_backend = comm_backend
   config%transpose_axis_contiguous = .true.
   ! for halo exchanges
@@ -96,10 +97,14 @@ program main
   ! initialize cuDecomp with the config file 
   CHECK_CUDECOMP_EXIT(cudecompGridDescCreate(handle, grid_desc, config, options))
 
+  ! Print information on configuration
   if (rank == 0) then
-     write(*,"('Running on ', i0, ' x ', i0, ' process grid ...')") config%pdims(1), config%pdims(2)
-     write(*,"('Using ', a, ' backend ...')") cudecompTransposeCommBackendToString(config%transpose_comm_backend)
-  end if
+      write(*,"('Running on ', i0, ' x ', i0, ' process grid ...')") config%pdims(1), config%pdims(2)
+      write(*,"('Using ', a, ' transpose backend ...')") &
+             cudecompTransposeCommBackendToString(config%transpose_comm_backend)
+      write(*,"('Using ', a, ' halo backend ...')") &
+             cudecompHaloCommBackendToString(config%halo_comm_backend)
+  endif
 
   ! get pencil info
   ! This function returns a pencil struct (piX, piY or piZ) that contains the shape, global lower and upper index bounds (lo and hi), 
@@ -118,7 +123,11 @@ program main
   nElemZ = piZ%size
 
   ! Get workspace sizes
+  ! For transpostion
   CHECK_CUDECOMP_EXIT(cudecompGetTransposeWorkspaceSize(handle, grid_desc, nElemWork))
+  ! For halo
+  CHECK_CUDECOMP_EXIT(cudecompGetHaloWorkspaceSize(handle, grid_desc, 1, halo, nElemWork_halo))
+
 
  ! show the order 1=x, 2=y, 3=z
  ! x-pencils are x,y,z
@@ -171,7 +180,11 @@ program main
  allocate(phi(max(nElemX, nElemY, nElemZ))) !largest among the pencil
  allocate(phi_d, mold=phi) ! phi on device
  allocate(ua(nx, piX%shape(2), piX%shape(3)))
+ ! For transposition 
  CHECK_CUDECOMP_EXIT(cudecompMalloc(handle, grid_desc, work_d, nElemWork))
+ ! For halo exchnages
+ CHECK_CUDECOMP_EXIT(cudecompMalloc(handle, grid_desc, work_halo_d, nElemWork_halo))
+
 
  write(*,*) "size phi", max(nElemX, nElemY, nElemZ)
 
