@@ -27,6 +27,7 @@ program main
   integer :: halo_ext ! 0 no halo, 1 means 1 halo
   type(cudecompPencilInfo) :: piX, piY, piZ  ! size of the pencils in x- y- and z-configuration
   integer(8) :: nElemX, nElemY, nElemZ, nElemWork, nElemWork_halo
+  logical :: halo_periods(3)
   ! cuFFT
   integer :: planX, planY, planZ
   integer :: batchsize
@@ -35,7 +36,7 @@ program main
   real(8), allocatable :: x(:), kx(:)
   real(8) :: dx,lx
   integer :: i,j,k,il,jl,kl,ig,jg,kg
-  integer, parameter :: Mx = 1, My = 2, Mz = 3
+  integer, parameter :: Mx = 1, My = 0, Mz = 0
   real(8), device, allocatable :: kx_d(:)
   real(8), parameter :: twopi = 8.0_8*atan(1.0_8)
   ! workign arrays
@@ -86,8 +87,11 @@ program main
   config%transpose_axis_contiguous = .true.
   ! for halo exchanges
   config%halo_comm_backend = CUDECOMP_HALO_COMM_MPI
+  ! Setting for periodic halos in all directions (non required to be in config)
+  halo_periods = [.true., .true., .true.]
 
-  !
+
+  
   CHECK_CUDECOMP_EXIT(cudecompGridDescAutotuneOptionsSetDefaults(options))
   options%dtype = CUDECOMP_DOUBLE_COMPLEX
   if (comm_backend == 0) then
@@ -205,8 +209,8 @@ program main
      do jl = 1, npy
         jg = piX%lo(2) + jl - 1 
         do i = 1, nx
-           !phi3(i,jl,kl) = cmplx(sin(My*x(jg)),0.0)  ! RHS of Poisson equation
-           phi3(i,jl,kl) = cmplx(sin(Mx*x(i))*sin(My*x(jg))*sin(Mz*x(kg)),0.0)  ! RHS of Poisson equation
+           phi3(i,jl,kl) = cmplx(sin(Mx*x(i)),0.0)  ! RHS of Poisson equation
+           !phi3(i,jl,kl) = cmplx(sin(Mx*x(i))*sin(My*x(jg))*sin(Mz*x(kg)),0.0)  ! RHS of Poisson equation
            ua(i,jl,kl) = -phi3(i,jl,kl)/(Mx**2 + My**2 + Mz**2) ! Solution of Poisson equation
         enddo
      enddo
@@ -290,6 +294,14 @@ CHECK_CUDECOMP_EXIT(cudecompTransposeYToX(handle, grid_desc, phi_d, phi_d, work_
 ! phi(kx,y,z) -> phi(x,y,z)
 status = cufftExecZ2Z(planX, phi_d, phi_d, CUFFT_INVERSE)
 if (status /= CUFFT_SUCCESS) write(*,*) 'X inverse error: ', status
+
+
+! update halo
+! Update X-pencil halos in Y direction
+CHECK_CUDECOMP_EXIT(cudecompUpdateHalosX(handle, grid_desc, phi_d, work_halo_d, CUDECOMP_DOUBLE_COMPLEX, piX%halo_extents, halo_periods, 2))
+
+! Update X-pencil halos in Z direction
+CHECK_CUDECOMP_EXIT(cudecompUpdateHalosX(handle, grid_desc, phi_d, work_halo_d, CUDECOMP_DOUBLE_COMPLEX, piX%halo_extents, halo_periods, 3))
 
 !D2H transfer
 phi = phi_d
