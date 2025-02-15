@@ -9,4 +9,5 @@ Log of changes/status
 - 12/02/25: Compile and run on Leonardo + makefile for Leo
 - 13/02/25: Adaption to work with only one grid descriptor and pencils along y and z only (0,1,1). Everythign seems fine
 - 14/02/25: Pencil update on y and z look also fine and working, all basic elements seems to be ready. cuDecomp updated to (#52), version 0.4.2, Tested on Leonardo up to 16 nodes (with the makefile with -cuda + -Wl, relax). The makefile issued is present only on Leonardo where cuda is not present in the same folder.
+- 15/02/25: General structure of the code inializated and step division 
 

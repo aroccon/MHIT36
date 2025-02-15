@@ -13,11 +13,11 @@ LDFLAGS = -L$(CUDECOMP_DIR)/lib -L$(CUDA_DIR)/lib64
 LIBS = -lcudecomp_fort -lcudecomp -cudalib=cufft -cuda
 
 # Source and Object Files
-SRCS = poisson_simple.f90
+SRCS = main.f90
 OBJS = $(SRCS:.f90=.o)
 
 # Output Executable
-TARGET = poisson
+TARGET = mhit36
 
 # Default Rule
 all: $(TARGET)
