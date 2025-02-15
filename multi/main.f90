@@ -46,7 +46,7 @@ program main
   character(len=40) :: namefile
   ! Code variables
   complex(8), allocatable :: rhsp_complex(:,:,:)
-  real(8), allocatable :: rhsp(:,:,:)
+  real(8), allocatable :: rhsp(:,:,:), p(:,:,:)
 
 
 
@@ -70,8 +70,8 @@ program main
   nx = 64
   ny = nx
   nz = nx
-  pr = 2
-  pc = 1
+  pr = 1
+  pc = 2
   halo_ext=1
   comm_backend = CUDECOMP_TRANSPOSE_COMM_MPI_P2P
 
@@ -190,6 +190,7 @@ program main
 
 
 
+
   !########################################################################################################################################
   ! START STEP 2: ALLOCATE ARRAYS
   !########################################################################################################################################
@@ -200,6 +201,8 @@ program main
   ! Pressure variable
   allocate(rhsp_complex(piX%shape(1), piX%shape(2), piX%shape(3)))
   allocate(rhsp(piX%shape(1), piX%shape(2), piX%shape(3))) 
+  allocate(p(piX%shape(1), piX%shape(2), piX%shape(3))) 
+
 
   ! work_d is the device array for transposition (CUDA)
   CHECK_CUDECOMP_EXIT(cudecompMalloc(handle, grid_desc, work_d, nElemWork))
@@ -208,6 +211,9 @@ program main
   !########################################################################################################################################
   ! END STEP2: ALLOCATE ARRAYS)
   !########################################################################################################################################
+
+
+
 
 
   !########################################################################################################################################
@@ -250,12 +256,7 @@ program main
   ! for the moment keep it similar to the cuDecomp example, can be optimized in the future 
   block
    complex(8), pointer :: phi3(:,:,:)
-   integer :: jl, kl, jg, kg
-   npx = piX%shape(1)
-   npy = piX%shape(2)
-   npz = piX%shape(3)
-   !write(*,*) "npx,npy,npz",npx,npy,npz
-   call c_f_pointer(c_loc(phi), phi3, [npx, npy, npz])
+   call c_f_pointer(c_loc(phi), phi3, [piX%shape(1), piX%shape(2), piX%shape(3)])
 
    !rhsp is a standard array (similar to those that are in the code)
    do kl = 1, piX%shape(3)
@@ -264,7 +265,7 @@ program main
          jg = piX%lo(2) + jl - 1 
          do i = 1, piX%shape(1)
            !rhsp_complex(i,jl,kl) = cmplx(rhsp(i,jl,kl),0.0) !<- use this once solver is ok
-           ! For Poisson testing 
+           ! For Poisson testing (knwon solutions)
            rhsp_complex(i,jl,kl) = cmplx(sin(Mx*x(i)),0.0) 
            !rhsp_complex(i,jl,kl) = cmplx(sin(Mx*x(i))*sin(My*x(jg))*sin(Mz*x(kg)),0.0)  ! RHS of Poisson equation
          enddo
@@ -272,11 +273,11 @@ program main
    enddo
 
    !move these arrays into the device pointer to feed the Poisson solver
-   do kl = 1, npz
+   do kl = 1, pix%shape(3)
      kg = piX%lo(3) + kl - 1 
-     do jl = 1, npy
+     do jl = 1, pix%shape(2)
         jg = piX%lo(2) + jl - 1 
-        do i = 1, nx
+        do i = 1, pix%shape(1)
           phi3(i,jl,kl) = rhsp_complex(i,jl,kl)  ! RHS of Poisson equation is phi3 (pointer to phi and then copied into the GPU)
            !phi3(i,jl,kl) = 
            ua(i,jl,kl) = -phi3(i,jl,kl)/(Mx**2 + My**2 + Mz**2) ! Solution of Poisson equation
@@ -315,7 +316,7 @@ program main
   block
     complex(8), device, pointer :: phi3d(:,:,:)
     real(8) :: k2
-    integer :: il, jl, ig, jg
+    !integer :: il, jl, ig, jg
     integer :: offsets(3), xoff, yoff
     integer :: np(3)
     np(piZ%order(1)) = piZ%shape(1)
@@ -375,35 +376,41 @@ program main
 
 
 
- ! check results of Poisson equation
- ! output solution in a file
- write(namefile,'(a,i3.3,a)') 'phi_',rank,'.dat'
- open(unit=55,file=namefile,form='unformatted',position='append',access='stream',status='new')
- write(55) real(phi, KIND=8)
- close(55)
-
  ! check against analytical solution
  block
    complex(8), pointer :: phi3(:,:,:)
-   real(8) :: err, maxErr = -1.0
-   integer :: jl, kl
-   npx = piX%shape(1)
-   npy = piX%shape(2)
-   npz = piX%shape(3)
-   call c_f_pointer(c_loc(phi), phi3, [npx, npy, npz])
+   real(8) :: err, maxErr = -1.0, err2
+   call c_f_pointer(c_loc(phi), phi3, [piX%shape(1), piX%shape(2), piX%shape(3)])
 
-
-   do kl = 1+halo_ext, npz-halo_ext
-      do jl = 1+halo_ext, npy-halo_ext
-         do i = 1, nx
+   !Check errro on complex (ua and phi3 are complex)
+   do kl = 1, piX%shape(3)
+      do jl = 1, piX%shape(2)
+         do i = 1, piX%shape(1)
             err = abs(ua(i,jl,kl)-phi3(i,jl,kl))
             if (err > maxErr) maxErr = err
          enddo
       enddo
    enddo
 
+   ! take back p from phi3
+   ! i can span also the halo because they have been already updated
+   do kl = 1, piX%shape(3)
+      do jl = 1, piX%shape(2)
+         do i = 1, piX%shape(1)
+            p(i,jl,kl) = real(phi3(i,jl,kl))
+         enddo
+      enddo
+   enddo
+
    write(*,"('[', i0, '] Max Error: ', e12.6)") rank, maxErr
   end block
+
+  ! For debug
+  ! output solution in a file
+  write(namefile,'(a,i3.3,a)') 'p_',rank,'.dat'
+  open(unit=55,file=namefile,form='unformatted',position='append',access='stream',status='new')
+  write(55) p
+  close(55)
 
   !########################################################################################################################################
   ! END STEP 7: POISSON SOLVER FOR PRESSURE
