@@ -9,8 +9,6 @@ program mhit
 ! Eulero explicit in time (to be ubgraded to AB for NS)
 
 use openacc
-use mpi
-use cudafor
 use fastp
 use param
 use velocity
@@ -27,19 +25,9 @@ double precision :: timef,times ! timers for elapsed time
 double precision :: h11,h12,h13,h21,h22,h23,h31,h32,h33,cou !for advective terms in NS
 integer :: i,j,k,t,im,jm,km,ip,jp,kp ! loop index and + and - positions
 double precision :: x(nx) ! axis location (same for x,y an z)
-integer :: rank,nranks,ierr,local_comm,local_rank
-
-!initialize MPI 
-call MPI_Init(ierr)
-call MPI_Comm_rank(MPI_COMM_WORLD, rank, ierr)
-call MPI_Comm_size(MPI_COMM_WORLD, nranks, ierr)
-call MPI_Comm_split_Type(MPI_COMM_WORLD, MPI_COMM_TYPE_SHARED, 0, MPI_INFO_NULL, local_comm, ierr)
-call MPI_Comm_rank(local_comm, local_rank, ierr)
-ierr = cudaSetDevice(local_rank)
-
 
 !assign the code to one GPU
-!call acc_set_device_num(1,acc_device_nvidia)
+call acc_set_device_num(1,acc_device_nvidia)
 
 !read parameters and compute pre-defined constant
 call readinput
@@ -51,7 +39,7 @@ allocate(p(nx,nx,nx),rhsp(nx,nx,nx))  ! p and rhsp in physical space
 allocate(pc(nx/2+1,nx,nx),rhspc(nx/2+1,nx,nx)) ! p and rhsp in complex space
 allocate(ustar(nx,nx,nx),vstar(nx,nx,nx),wstar(nx,nx,nx)) ! provisional velocity field
 allocate(rhsu(nx,nx,nx),rhsv(nx,nx,nx),rhsw(nx,nx,nx)) ! rhs of u,v and w
-!allocate(delsq(nx,nx,nx))  ! can be removed in theory
+allocate(delsq(nx,nx,nx))  ! can be removed in theory
 allocate(kk(nx))
 !PFM variables
 #if phiflag == 1
@@ -512,9 +500,9 @@ do t=tstart,tfin
     !check courant number
     !$acc kernels
     cou=0.d0
-    !uc=maxval(u)
-    !vc=maxval(v)
-    !wc=maxval(w)
+    uc=maxval(u)
+    vc=maxval(v)
+    wc=maxval(w)
     umax=max(wc,max(uc,vc))
     !$acc end kernels
 
@@ -561,8 +549,6 @@ deallocate(phi,rhsphi,normx,normy,normz)
 #if partflag==1
 deallocate(xp,vp,ufp,fp)
 #endif
-
-
 
 end program 
 

@@ -6,7 +6,6 @@ rm *.mod
 rm mhit36
 make clean
 make
-make
 
 rm -rf output
 mkdir output

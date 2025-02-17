@@ -9,7 +9,7 @@ FFLAGS = -fast -gpu=managed -cuda -acc -cudalib -Mfree -Mpreprocess -mcmodel=med
 EXEC = mhit36
 
 # Source files
-SRCS = module.f90  main.f90 poissonfast.f90 readwrite.f90 particles.f90
+SRCS = module.f90  main.f90 readinput.f90 poissonfast.f90 readwrite.f90 particles.f90
 
 # Libraries
 #LIBS    = -L/usr/local/cuda/lib64 -

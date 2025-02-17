@@ -15,7 +15,7 @@ module fastp
     use cufft
     use iso_c_binding
     integer :: cudaplan_fwd,cudaplan_bwd
-    !double precision, allocatable :: delsq(:,:,:)
+    double precision, allocatable :: delsq(:,:,:)
     double precision, allocatable :: kk(:)
     double precision, allocatable :: kx(:,:,:), ky(:,:,:), kz(:,:,:)
     real(c_double), pinned, allocatable :: p(:,:,:), rhsp(:,:,:)

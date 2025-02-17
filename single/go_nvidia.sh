@@ -1,6 +1,6 @@
 #!/bin/bash
-#SBATCH --account="update"
-#SBATCH --job-name="cfdparschool"
+#SBATCH --account="IscrB_*****"
+#SBATCH --job-name="test"
 #SBATCH --time=00:10:00
 #SBATCH --nodes=1      ##adjust
 #SBATCH --ntasks-per-node=1

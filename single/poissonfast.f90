@@ -6,7 +6,7 @@ use fastp
 use param
 implicit none
 integer :: gerr,i,j,k
-double precision :: pm,delsq
+double precision :: pm
 
 ! A. Roccon 28/02/2024
 ! 3D FFT-based solution of p_xx + p_yy  + p_zz = rhs;
@@ -37,13 +37,7 @@ gerr = gerr + cufftExecD2Z(cudaplan_fwd,rhsp,rhspc)
 do i=1,nx/2+1
     do j=1,nx
         do k=1,nx
-            if ((i .eq. 1) .and. (j .eq. 1) .and. (k .eq. 1)) then
-		delsq=1.0d0
-	    else
-		delsq=-(kk(i)**2d0 + kk(j)**2d0 + kk(k)**2d0)
-	    endif
-	    !delsq=-(kk(i)**2d0 + kk(j)**2d0 + kk(k)**2d0)
-            pc(i,j,k)=rhspc(i,j,k)/delsq
+            pc(i,j,k)=rhspc(i,j,k)/delsq(i,j,k)
         enddo
     enddo
 enddo
@@ -104,14 +98,14 @@ do i=nx/2+1,nx
 enddo
 
 !create delsq
-!do i=1,nx
-!    do j=1,nx
-!        do k=1,nx
-!            delsq(i,j,k) = -(kk(i)**2d0 + kk(j)**2d0 + kk(k)**2d0)
-!        enddo
-!    enddo
-!enddo
+do i=1,nx
+    do j=1,nx
+        do k=1,nx
+            delsq(i,j,k) = -(kk(i)**2d0 + kk(j)**2d0 + kk(k)**2d0)
+        enddo
+    enddo
+enddo
 
-!delsq(1,1,1) = 1.d0
+delsq(1,1,1) = 1.d0
 
 end subroutine

@@ -16,6 +16,6 @@ mkdir output
 rm *.o
 
 #run the code
-mpirun -n 2 ./mhit36
+./mhit36
 
 
