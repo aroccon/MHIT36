@@ -37,8 +37,8 @@ integer :: i,j,k,il,jl,kl,ig,jg,kg,t
 integer, parameter :: Mx = 1, My = 0, Mz = 0
 real(8), device, allocatable :: kx_d(:)
 ! working arrays
-complex(8), allocatable :: phi(:), ua(:,:,:)
-complex(8), device, allocatable :: phi_d(:)
+complex(8), allocatable :: psi(:), ua(:,:,:)
+complex(8), device, allocatable :: psi_d(:)
 complex(8), pointer, device, contiguous :: work_d(:), work_halo_d(:)
 character(len=40) :: namefile
 ! Code variables
@@ -64,8 +64,8 @@ ierr = cudaSetDevice(localRank) !assign GPU to MPI rank
 call readinput
 
 ! hard coded, then from input
-pr = 1
-pc = 2
+pr = 2
+pc = 1
 halo_ext=1
 comm_backend = CUDECOMP_TRANSPOSE_COMM_MPI_P2P
 
@@ -186,8 +186,8 @@ allocate(kx_d, source=kx)
 ! START STEP 2: ALLOCATE ARRAYS
 !########################################################################################################################################
 ! allocate arrays
-allocate(phi(max(nElemX, nElemY, nElemZ))) !largest among the pencil
-allocate(phi_d, mold=phi) ! phi on device
+allocate(psi(max(nElemX, nElemY, nElemZ))) !largest among the pencil
+allocate(psi_d, mold=psi) ! phi on device
 allocate(ua(nx, piX%shape(2), piX%shape(3)))
 ! Pressure variable
 allocate(rhsp_complex(piX%shape(1), piX%shape(2), piX%shape(3)))
@@ -202,7 +202,7 @@ allocate(u(piX%shape(1),piX%shape(2),piX%shape(3)),v(piX%shape(1),piX%shape(2),p
 !allocate(rhsu(nx,nx,nx),rhsv(nx,nx,nx),rhsw(nx,nx,nx)) ! rhs of u,v and w
 !PFM variables
 #if phiflag == 1
-!allocate(phi(nx,nx,nx),rhsphi(nx,nx,nx))
+!allocate(phi(piX%shape(1), piX%shape(2), piX%shape(3)),rhsphi(piX%shape(1), piX%shape(2), piX%shape(3)))
 !allocate(normx(nx,nx,nx),normy(nx,nx,nx),normz(nx,nx,nx))
 !allocate(curv(nx,nx,nx),gradphix(nx,nx,nx),gradphiy(nx,nx,nx),gradphiz(nx,nx,nx))
 !allocate(fxst(nx,nx,nx),fyst(nx,nx,nx),fzst(nx,nx,nx)) ! surface tension forces
@@ -225,19 +225,82 @@ CHECK_CUDECOMP_EXIT(cudecompMalloc(handle, grid_desc, work_halo_d, nElemWork_hal
 !########################################################################################################################################
 ! 3.1 Read from data without halo grid points (avoid out-of-bound)
 ! 3.2 Call halo exchnages along Y and Z for u,v,w and phi
+!initialize velocity field
+if (restart .eq. 0) then !fresh start Taylor Green or read from file in init folder
+   write(*,*) "Initialize velocity field (fresh start)"
+   if (inflow .eq. 0) then
+      write(*,*) "Initialize Taylor-green"
+      do kl = 1+halo_ext, piX%shape(3)-halo_ext
+         kg = piX%lo(3) + kl - 1 
+         do jl = 1+halo_ext, piX%shape(2)-halo_ext
+            jg = piX%lo(2) + jl - 1 
+            do i = 1, piX%shape(1)
+               u(i,jl,kl) =  sin(x(i))*cos(x(jg))*cos(x(kg))
+               v(i,jl,kl) =  -cos(x(i))*sin(x(jg))*cos(x(kg))
+               w(i,jl,kl) =  0.d0
+            enddo
+         enddo
+      enddo
+   endif
+   if (inflow .eq. 1) then
+      write(*,*) "Initialize frow data"
+      !call readfield(t,1)
+      !call readfield(t,2)
+      !call readfield(t,3)
+   endif
+endif
+if (restart .eq. 1) then !restart, ignore inflow and read the tstart field 
+   write(*,*) "Initialize velocity field (from output folder), iteration:", tstart
+   !call readfield_restart(tstart,1)
+   !call readfield_restart(tstart,2)
+   !call readfield_restart(tstart,3)
+endif
+
+! For debug
+!output solution in a file
+!write(namefile,'(a,i3.3,a)') 'u_',rank,'.dat'
+!open(unit=55,file=namefile,form='unformatted',position='append',access='stream',status='new')
+!write(55) u
+!close(55)
+! check on velocity field (also used to compute gamma at first iteration)
+uc=maxval(u)
+vc=maxval(v)
+wc=maxval(w)
+umax=max(wc,max(uc,vc))
+cou=umax*dt*dxi
+write(*,*) "Umax and Courant number:",umax, cou
+
+
+! initialize phase-field
+!#if phiflag == 1
+!if (restart .eq. 0) then
+!    write(*,*) 'Initialize phase field (fresh start)'
+!    do k = 1,nx
+!        do j= 1,nx
+!            do i = 1,nx
+!                pos=(x(i)-lx/2)**2d0 +  (x(j)-lx/2)**2d0 + (x(k)-lx/2)**2d0
+!                phi(i,j,k) = 0.5d0*(1.d0-tanh((sqrt(pos)-radius)/2/eps))
+!            enddo
+!        enddo
+!    enddo
+!endif
+!if (restart .eq. 1) then
+!    write(*,*) "Initialize phase-field (restart, from output folder), iteration:", tstart
+!    !call readfield_restart(tstart,5)
+!endif
+!#endif
 !########################################################################################################################################
 ! END STEP 3: FLOW AND PHASE FIELD INIT
 !########################################################################################################################################
 
 
 ! ########################################################################################################################################
-! START TEMPORAL LOOP: STEP 4 to X REPEATED AT EVERY TIME STEP
+! START TEMPORAL LOOP: STEP 4 to 8 REPEATED AT EVERY TIME STEP
 ! ########################################################################################################################################
 tstart=tstart+1
 ! Start temporal loop
 do t=tstart,tfin
 
-    call cpu_time(times)
     if (rank.eq.0) write(*,*) "Time step",t,"of",tfin
 
    !########################################################################################################################################
@@ -269,8 +332,8 @@ do t=tstart,tfin
    ! initialize phi and analytical solution
    ! for the moment keep it similar to the cuDecomp example, can be optimized in the future 
    block
-   complex(8), pointer :: phi3(:,:,:)
-   call c_f_pointer(c_loc(phi), phi3, [piX%shape(1), piX%shape(2), piX%shape(3)])
+   complex(8), pointer :: psi3(:,:,:)
+   call c_f_pointer(c_loc(psi), psi3, [piX%shape(1), piX%shape(2), piX%shape(3)])
 
    !rhsp is a standard array (similar to those that are in the code)
    do kl = 1, piX%shape(3)
@@ -292,41 +355,42 @@ do t=tstart,tfin
       do jl = 1, pix%shape(2)
          jg = piX%lo(2) + jl - 1 
          do i = 1, pix%shape(1)
-            phi3(i,jl,kl) = rhsp_complex(i,jl,kl)  ! RHS of Poisson equation is phi3 (pointer to phi and then copied into the GPU)
+            psi3(i,jl,kl) = rhsp_complex(i,jl,kl)  ! RHS of Poisson equation is psi3 (pointer to psi and then copied into the GPU)
             !phi3(i,jl,kl) = 
-            ua(i,jl,kl) = -phi3(i,jl,kl)/(Mx**2 + My**2 + Mz**2) ! Solution of Poisson equation
+            ua(i,jl,kl) = -psi3(i,jl,kl)/(Mx**2 + My**2 + Mz**2) ! Solution of Poisson equation
          enddo
       enddo
    enddo
    end block
 
+   call cpu_time(times)
    ! H2D transfer using CUDA
-   phi_d = phi
+   psi_d = psi
 
    ! input rhs 
    ! write(namefile,'(a,i3.3,a)') 'rhs_',rank,'.dat'
    ! open(unit=55,file=namefile,form='unformatted',position='append',access='stream',status='new')
-   ! write(55) real(phi, KIND=8)
+   ! write(55) real(psi, KIND=8)
    ! close(55)
 
    ! do the FFT3D forward 
-   ! phi(x,y,z) -> phi(kx,y,z)
-   status = cufftExecZ2Z(planX, phi_d, phi_d, CUFFT_FORWARD)
+   ! psi(x,y,z) -> psi(kx,y,z)
+   status = cufftExecZ2Z(planX, psi_d, psi_d, CUFFT_FORWARD)
    if (status /= CUFFT_SUCCESS) write(*,*) 'X forward error: ', status
-   ! phi(kx,y,z) -> phi(y,z,kx)
-   CHECK_CUDECOMP_EXIT(cudecompTransposeXToY(handle, grid_desc, phi_d, phi_d, work_d, CUDECOMP_DOUBLE_COMPLEX,Pix%halo_extents, [0,0,0]))
-   ! phi(y,z,kx) -> phi(ky,z,kx)
-   status = cufftExecZ2Z(planY, phi_d, phi_d, CUFFT_FORWARD)
+   ! psi(kx,y,z) -> psi(y,z,kx)
+   CHECK_CUDECOMP_EXIT(cudecompTransposeXToY(handle, grid_desc, psi_d, psi_d, work_d, CUDECOMP_DOUBLE_COMPLEX,Pix%halo_extents, [0,0,0]))
+   ! psi(y,z,kx) -> psi(ky,z,kx)
+   status = cufftExecZ2Z(planY, psi_d, psi_d, CUFFT_FORWARD)
    if (status /= CUFFT_SUCCESS) write(*,*) 'Y forward error: ', status
-   ! phi(ky,z,kx) -> phi(z,kx,ky)
-   CHECK_CUDECOMP_EXIT(cudecompTransposeYToZ(handle, grid_desc, phi_d, phi_d, work_d, CUDECOMP_DOUBLE_COMPLEX))
-   ! phi(z,kx,ky) -> phi(kz,kx,ky)
-   status = cufftExecZ2Z(planZ, phi_d, phi_d, CUFFT_FORWARD)
+   ! psi(ky,z,kx) -> psi(z,kx,ky)
+   CHECK_CUDECOMP_EXIT(cudecompTransposeYToZ(handle, grid_desc, psi_d, psi_d, work_d, CUDECOMP_DOUBLE_COMPLEX))
+   ! psi(z,kx,ky) -> psi(kz,kx,ky)
+   status = cufftExecZ2Z(planZ, psi_d, psi_d, CUFFT_FORWARD)
    if (status /= CUFFT_SUCCESS) write(*,*) 'Z forward error: ', status
    ! END of FFT3D forward
 
    block
-   complex(8), device, pointer :: phi3d(:,:,:)
+   complex(8), device, pointer :: psi3d(:,:,:)
    real(8) :: k2
    !integer :: il, jl, ig, jg
    integer :: offsets(3), xoff, yoff
@@ -334,7 +398,7 @@ do t=tstart,tfin
    np(piZ%order(1)) = piZ%shape(1)
    np(piZ%order(2)) = piZ%shape(2)
    np(piZ%order(3)) = piZ%shape(3)
-   call c_f_pointer(c_devloc(phi_d), phi3d, piZ%shape)
+   call c_f_pointer(c_devloc(psi_d), psi3d, piZ%shape)
 
    ! divide by -K**2, and normalize
    offsets(piZ%order(1)) = piZ%lo(1) - 1
@@ -352,62 +416,65 @@ do t=tstart,tfin
          ig = xoff + il
          do k = 1, nz
             k2 = kx_d(ig)**2 + kx_d(jg)**2 + kx_d(k)**2
-            phi3d(k,il,jl) = -phi3d(k,il,jl)/k2/(nx*ny*nz)
+            psi3d(k,il,jl) = -psi3d(k,il,jl)/k2/(nx*ny*nz)
          enddo
       enddo
    enddo
 
    ! specify mean (corrects division by zero wavenumber above)
-   if (xoff == 0 .and. yoff == 0) phi3d(1,1,1) = 0.0
+   if (xoff == 0 .and. yoff == 0) psi3d(1,1,1) = 0.0
    end block
 
-   ! phi(kz,kx,ky) -> phi(z,kx,ky)
-   status = cufftExecZ2Z(planZ, phi_d, phi_d, CUFFT_INVERSE)
+   ! psi(kz,kx,ky) -> psi(z,kx,ky)
+   status = cufftExecZ2Z(planZ, psi_d, psi_d, CUFFT_INVERSE)
    if (status /= CUFFT_SUCCESS) write(*,*) 'Z inverse error: ', status
-   ! phi(z,kx,ky) -> phi(ky,z,kx)
-   CHECK_CUDECOMP_EXIT(cudecompTransposeZToY(handle, grid_desc, phi_d, phi_d, work_d, CUDECOMP_DOUBLE_COMPLEX))
-   ! phi(ky,z,kx) -> phi(y,z,kx)
-   status = cufftExecZ2Z(planY, phi_d, phi_d, CUFFT_INVERSE)
+   ! psi(z,kx,ky) -> psi(ky,z,kx)
+   CHECK_CUDECOMP_EXIT(cudecompTransposeZToY(handle, grid_desc, psi_d, psi_d, work_d, CUDECOMP_DOUBLE_COMPLEX))
+   ! psi(ky,z,kx) -> psi(y,z,kx)
+   status = cufftExecZ2Z(planY, psi_d, psi_d, CUFFT_INVERSE)
    if (status /= CUFFT_SUCCESS) write(*,*) 'Y inverse error: ', status
-   ! phi(y,z,kx) -> phi(kx,y,z)
-   CHECK_CUDECOMP_EXIT(cudecompTransposeYToX(handle, grid_desc, phi_d, phi_d, work_d, CUDECOMP_DOUBLE_COMPLEX, [0,0,0], Pix%halo_extents))
-   ! phi(kx,y,z) -> phi(x,y,z)
-   status = cufftExecZ2Z(planX, phi_d, phi_d, CUFFT_INVERSE)
+   ! psi(y,z,kx) -> psi(kx,y,z)
+   CHECK_CUDECOMP_EXIT(cudecompTransposeYToX(handle, grid_desc, psi_d, psi_d, work_d, CUDECOMP_DOUBLE_COMPLEX, [0,0,0], Pix%halo_extents))
+   ! psi(kx,y,z) -> psi(x,y,z)
+   status = cufftExecZ2Z(planX, psi_d, psi_d, CUFFT_INVERSE)
    if (status /= CUFFT_SUCCESS) write(*,*) 'X inverse error: ', status
 
    ! update halo nodes with pressure (needed for the pressure correction step), using device variable no need to use host-data
    ! Update X-pencil halos in Y direction
-   CHECK_CUDECOMP_EXIT(cudecompUpdateHalosX(handle, grid_desc, phi_d, work_halo_d, CUDECOMP_DOUBLE_COMPLEX, piX%halo_extents, halo_periods, 2))
+   CHECK_CUDECOMP_EXIT(cudecompUpdateHalosX(handle, grid_desc, psi_d, work_halo_d, CUDECOMP_DOUBLE_COMPLEX, piX%halo_extents, halo_periods, 2))
 
    ! Update X-pencil halos in Z direction
-   CHECK_CUDECOMP_EXIT(cudecompUpdateHalosX(handle, grid_desc, phi_d, work_halo_d, CUDECOMP_DOUBLE_COMPLEX, piX%halo_extents, halo_periods, 3))
+   CHECK_CUDECOMP_EXIT(cudecompUpdateHalosX(handle, grid_desc, psi_d, work_halo_d, CUDECOMP_DOUBLE_COMPLEX, piX%halo_extents, halo_periods, 3))
 
    !D2H transfer
-   phi = phi_d
+   psi = psi_d
+
+   call cpu_time(timef)
+   if (rank.eq.0)  print '(" Time elapsed = ",f6.1," ms")',1000*(timef-times)
 
 
    ! check against analytical solution
    block
-   complex(8), pointer :: phi3(:,:,:)
+   complex(8), pointer :: psi3(:,:,:)
    real(8) :: err, maxErr = -1.0, err2
-   call c_f_pointer(c_loc(phi), phi3, [piX%shape(1), piX%shape(2), piX%shape(3)])
+   call c_f_pointer(c_loc(psi), psi3, [piX%shape(1), piX%shape(2), piX%shape(3)])
 
-   !Check errro on complex (ua and phi3 are complex)
+   !Check errro on complex (ua and psi3 are complex)
    do kl = 1, piX%shape(3)
       do jl = 1, piX%shape(2)
          do i = 1, piX%shape(1)
-            err = abs(ua(i,jl,kl)-phi3(i,jl,kl))
+            err = abs(ua(i,jl,kl)-psi3(i,jl,kl))
             if (err > maxErr) maxErr = err
          enddo
       enddo
    enddo
 
-   ! take back p from phi3
+   ! take back p from psi3
    ! i can span also the halo because they have been already updated
    do kl = 1, piX%shape(3)
       do jl = 1, piX%shape(2)
          do i = 1, piX%shape(1)
-            p(i,jl,kl) = real(phi3(i,jl,kl))
+            p(i,jl,kl) = real(psi3(i,jl,kl))
          enddo
       enddo
    enddo

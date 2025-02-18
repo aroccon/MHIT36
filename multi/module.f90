@@ -22,6 +22,7 @@ module velocity
    double precision, allocatable :: u(:,:,:), v(:,:,:), w(:,:,:)
    complex(8), allocatable :: rhsp_complex(:,:,:)
    real(8), allocatable :: rhsp(:,:,:), p(:,:,:)
+   real(8) :: uc,vc,wc,umax,cou
 end module velocity
 
 
