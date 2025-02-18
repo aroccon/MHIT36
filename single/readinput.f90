@@ -8,7 +8,7 @@ use fastp
 use param
 implicit none
 
-open(unit=55,file='input.dat',form='formatted',status='old')
+open(unit=55,file='input.inp',form='formatted',status='old')
 !Time step parameters
 read(55,*) restart
 read(55,*) tstart

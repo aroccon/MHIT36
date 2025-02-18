@@ -1,32 +1,28 @@
 # Compiler
 FC = mpif90
+LD	= $(FC)
+RM	= /bin/rm -f
 
 # Paths (Modify if necessary)
 CUDECOMP_DIR = /home/milton/MHIT36_cuDecomp/cuDecomp-main/build/
 
 # Compiler and Linker Flags
-FFLAGS = -gpu=managed -cpp -Mfree -cuda -I$(CUDECOMP_DIR)/include
-LDFLAGS = -L$(CUDECOMP_DIR)/lib -L/usr/local/cuda/lib64
-LIBS = -lcudecomp_fort -lcudecomp -cudalib=cufft -cuda 
+FFLAGS = -fast -acc -gpu=managed -Minfo=accel -Mfree -Mpreprocess -cpp -Minfo=accel -cuda  -I$(CUDECOMP_DIR)/include
+LIBS = -L$(CUDECOMP_DIR)/lib -L/usr/local/cuda/lib64 -lcudecomp_fort -lcudecomp -cudalib=cufft -lcuda
 
 # Source and Object Files
-SRCS = module.f90 main.f90 readinput.f90
-OBJS = $(SRCS:.f90=.o)
+OBJS = module.f90 main.f90 readinput.f90
+EXEC = mhit36
 
-# Output Executable
-TARGET = mhit36
+$(EXEC):	$(OBJS)
+	$(LD) $(FFLAGS) $(OBJS) $(LIBS) -o $@
 
-# Default Rule
-all: $(TARGET)
-
-# Linking
-$(TARGET): $(OBJS)
-	$(FC) $(LDFLAGS) -o $(TARGET) $(OBJS) $(LIBS)
-
-# Compilation Rule
-%.o: %.f90
-	$(FC) $(FFLAGS) -c $< -o $@
-
-# Clean Rule
 clean:
-	rm -f $(TARGET) $(OBJS) *.mod
+	$(RM) $(EXEC)
+
+.SUFFIXES: .o
+
+.f90.o:
+	$(FC)  -c $(FFLAGS) $<
+
+
