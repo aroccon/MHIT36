@@ -12,7 +12,7 @@
 module load nvhpc/24.3
 module load cuda/12.3
 module load openmpi/4.1.6--nvhpc--24.3
-export LD_LIBRARY_PATH=/leonardo_scratch/large/userexternal/aroccon0/MHIT36_cuDEcomp/cuDecomp-main/build/lib:$LD_LIBRARY_PATH
+export LD_LIBRARY_PATH=/leonardo_scratch/large/userexternal/aroccon0/MHIT36_cuDEcomp/cuDecomp/build/lib:$LD_LIBRARY_PATH
 
 
 
