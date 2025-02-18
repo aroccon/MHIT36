@@ -14,7 +14,7 @@ FFLAGS = -fast -acc -gpu=managed -Minfo=accel -Mfree -Mpreprocess -cpp -Minfo=ac
 LIBS = -L$(CUDECOMP_DIR)/lib -L$(CUDA_DIR)/lib64 -lcudecomp_fort -lcudecomp -cudalib=cufft 
 
 # Source and Object Files
-OBJS = module.f90 main.f90 readinput.f90
+OBJS = module.f90 main.f90 readinput.f90 readwrite.f90
 EXEC = mhit36
 
 $(EXEC):        $(OBJS)

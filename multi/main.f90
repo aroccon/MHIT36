@@ -8,25 +8,13 @@ use mpi
 use velocity 
 use param
 use mpivar
+use cudecompvar
 
 implicit none
-
 ! grid dimensions
 integer :: comm_backend
 integer :: pr, pc
-integer :: npx, npy, npz
 ! cudecomp
-type(cudecompHandle) :: handle
-type(cudecompGridDesc) :: grid_desc
-type(cudecompGridDescConfig) :: config
-type(cudecompGridDescAutotuneOptions) :: options
-integer :: pdims(2) ! pr x pc pencils
-integer :: gdims(3) ! global grid dimensions
-integer :: halo(3) ! halo extensions
-integer :: halo_ext ! 0 no halo, 1 means 1 halo
-type(cudecompPencilInfo) :: piX, piY, piZ  ! size of the pencils in x- y- and z-configuration
-integer(8) :: nElemX, nElemY, nElemZ, nElemWork, nElemWork_halo
-logical :: halo_periods(3)
 ! cuFFT
 integer :: planX, planY, planZ
 integer :: batchsize
@@ -64,8 +52,8 @@ ierr = cudaSetDevice(localRank) !assign GPU to MPI rank
 call readinput
 
 ! hard coded, then from input
-pr = 2
-pc = 1
+pr = 1
+pc = 2
 halo_ext=1
 comm_backend = CUDECOMP_TRANSPOSE_COMM_MPI_P2P
 
@@ -100,10 +88,10 @@ CHECK_CUDECOMP_EXIT(cudecompGridDescCreate(handle, grid_desc, config, options))
 
 ! Print information on configuration
 if (rank == 0) then
-   write(*,"('Running on ', i0, ' x ', i0, ' process grid ...')") config%pdims(1), config%pdims(2)
-   write(*,"('Using ', a, ' transpose backend ...')") &
+   write(*,"(' Running on ', i0, ' x ', i0, ' process grid ...')") config%pdims(1), config%pdims(2)
+   write(*,"(' Using ', a, ' transpose backend ...')") &
             cudecompTransposeCommBackendToString(config%transpose_comm_backend)
-   write(*,"('Using ', a, ' halo backend ...')") &
+   write(*,"(' Using ', a, ' halo backend ...')") &
             cudecompHaloCommBackendToString(config%halo_comm_backend)
 endif
 
@@ -173,10 +161,12 @@ do i = nx/2+1, nx
 enddo
 ! allocate k_d on the device (later on remove and use OpenACC + managed memory?)
 allocate(kx_d, source=kx)
-
 !########################################################################################################################################
 ! 1. INITIALIZATION AND cuDECOMP AUTOTUNING : END
 !########################################################################################################################################
+
+
+
 
 
 
@@ -220,6 +210,17 @@ CHECK_CUDECOMP_EXIT(cudecompMalloc(handle, grid_desc, work_halo_d, nElemWork_hal
 
 
 
+
+
+
+
+
+
+
+
+
+
+
 !########################################################################################################################################
 ! START STEP 3: FLOW AND PHASE FIELD INIT
 !########################################################################################################################################
@@ -227,15 +228,15 @@ CHECK_CUDECOMP_EXIT(cudecompMalloc(handle, grid_desc, work_halo_d, nElemWork_hal
 ! 3.2 Call halo exchnages along Y and Z for u,v,w and phi
 !initialize velocity field
 if (restart .eq. 0) then !fresh start Taylor Green or read from file in init folder
-   write(*,*) "Initialize velocity field (fresh start)"
+   if (rank.eq.0) write(*,*) "Initialize velocity field (fresh start)"
    if (inflow .eq. 0) then
-      write(*,*) "Initialize Taylor-green"
+      if (rank.eq.0) write(*,*) "Initialize Taylor-green"
       do kl = 1+halo_ext, piX%shape(3)-halo_ext
          kg = piX%lo(3) + kl - 1 
          do jl = 1+halo_ext, piX%shape(2)-halo_ext
             jg = piX%lo(2) + jl - 1 
             do i = 1, piX%shape(1)
-               u(i,jl,kl) =  sin(x(i))*cos(x(jg))*cos(x(kg))
+               u(i,jl,kl) =   sin(x(i))*cos(x(jg))*cos(x(kg))
                v(i,jl,kl) =  -cos(x(i))*sin(x(jg))*cos(x(kg))
                w(i,jl,kl) =  0.d0
             enddo
@@ -243,36 +244,28 @@ if (restart .eq. 0) then !fresh start Taylor Green or read from file in init fol
       enddo
    endif
    if (inflow .eq. 1) then
-      write(*,*) "Initialize frow data"
+      if (rank.eq.0)  write(*,*) "Initialize frow data"
       !call readfield(t,1)
       !call readfield(t,2)
       !call readfield(t,3)
    endif
 endif
 if (restart .eq. 1) then !restart, ignore inflow and read the tstart field 
-   write(*,*) "Initialize velocity field (from output folder), iteration:", tstart
+   if (rank.eq.0)  write(*,*) "Initialize velocity field (from output folder), iteration:", tstart
    !call readfield_restart(tstart,1)
    !call readfield_restart(tstart,2)
    !call readfield_restart(tstart,3)
 endif
 
-! For debug
-!output solution in a file
-!write(namefile,'(a,i3.3,a)') 'u_',rank,'.dat'
-!open(unit=55,file=namefile,form='unformatted',position='append',access='stream',status='new')
-!write(55) u
-!close(55)
-! check on velocity field (also used to compute gamma at first iteration)
 uc=maxval(u)
 vc=maxval(v)
 wc=maxval(w)
 umax=max(wc,max(uc,vc))
 cou=umax*dt*dxi
-write(*,*) "Umax and Courant number:",umax, cou
-
+!if (rank.eq.9) write(*,*) "Umax and Courant number:",umax, cou
 
 ! initialize phase-field
-!#if phiflag == 1
+#if phiflag == 1
 !if (restart .eq. 0) then
 !    write(*,*) 'Initialize phase field (fresh start)'
 !    do k = 1,nx
@@ -288,10 +281,34 @@ write(*,*) "Umax and Courant number:",umax, cou
 !    write(*,*) "Initialize phase-field (restart, from output folder), iteration:", tstart
 !    !call readfield_restart(tstart,5)
 !endif
-!#endif
+#endif
+
+!Save initial fields (only if a fresh start)
+if (restart .eq. 0) then
+   if (rank.eq.0) write(*,*) "Save initial fields"
+   call writefield(tstart,1)
+   call writefield(tstart,2)
+   call writefield(tstart,3)
+   !call writefield(tstart,4)
+   !#if phiflag == 1
+   !call writefield(tstart,5)
+   !#endif
+endif
 !########################################################################################################################################
 ! END STEP 3: FLOW AND PHASE FIELD INIT
 !########################################################################################################################################
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 ! ########################################################################################################################################
@@ -314,6 +331,13 @@ do t=tstart,tfin
    !########################################################################################################################################
 
 
+
+
+
+
+
+
+
    !########################################################################################################################################
    ! START STEP 5: USTAR COMPUTATION
    !########################################################################################################################################
@@ -324,6 +348,11 @@ do t=tstart,tfin
    !########################################################################################################################################
    ! END STEP 5: USTAR COMPUTATION 
    !########################################################################################################################################
+
+
+
+
+
 
 
    !########################################################################################################################################
@@ -479,7 +508,7 @@ do t=tstart,tfin
       enddo
    enddo
 
-   write(*,"('[', i0, '] Max Error: ', e12.6)") rank, maxErr
+   write(*,"(' [', i0, '] Max Error: ', e12.6)") rank, maxErr
    end block
 
    ! For debug
@@ -495,6 +524,16 @@ do t=tstart,tfin
 
 
 
+
+
+
+
+
+
+
+
+
+
    !########################################################################################################################################
    ! START STEP 8: VELOCITY CORRECTION
    ! ########################################################################################################################################
@@ -503,6 +542,34 @@ do t=tstart,tfin
    !########################################################################################################################################
    ! END STEP 8: VELOCITY CORRECTION  
    !########################################################################################################################################
+
+
+
+
+
+
+
+
+
+   !########################################################################################################################################
+   ! START STEP 9: OUTPUT FIELDS 
+   ! ########################################################################################################################################
+   if (mod(t,dump) .eq. 0) then
+      write(*,*) "Saving output files"
+          ! write velocity and pressure fiels (1-4)
+         call writefield(t,1)
+         !call writefield(t,2)
+         !call writefield(t,3)
+         !call writefield(t,4)
+     !#if phiflag == 1
+         ! write phase-field (5)
+         ! call writefield(t,5)
+      !#endif
+   endif
+   !########################################################################################################################################
+   ! END STEP 9: OUTPUT FIELDS N  
+   !########################################################################################################################################
+
 
 enddo
 

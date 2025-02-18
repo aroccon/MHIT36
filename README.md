@@ -21,16 +21,18 @@ Log of changes/status of the porting
 - Read input files ✅
 - Skeleton of the code  ✅
 - Halo updates test with CUDA ✅
-- Poisson solver scaling [WIP]
+- Poisson solver scaling 🚧
 - Halo updates test with host_data use_device ❌
-- Flow and phase-field initialization ❌
+- Flow file initialization ✅
+- Phase-field initialization
 - Projection step ❌
 - Correction step ❌
 - Forcing ❌
 - HIT validation ❌
 - Drop oscillation validation ❌
 - Full code scaling ❌
-- MPI reading (Leonardo problem) and writing ❌
+- MPI writing (no halo)  ✅
+- Serial reading (issue with Leonardo) ❌
 
 
 # Run the code
