@@ -6,7 +6,7 @@ module param
     double precision :: dt,mu,rho !flow parameters
     integer :: inflow
     double precision :: f1,f2,f3,k0 ! forcing parameters
-    double precision :: radius, sigma, eps ! phase-field parameters
+    double precision :: radius, sigma, epsr, eps, pos ! phase-field parameters
     real(8) :: times,timef
 end module param
 
@@ -16,6 +16,23 @@ module mpivar
    integer :: rank, ranks, ierr
    integer :: localRank, localComm
 end module mpivar
+
+
+module cudecompvar
+   use cudecomp
+   integer :: npx, npy, npz
+   type(cudecompHandle) :: handle
+   type(cudecompGridDesc) :: grid_desc
+   type(cudecompGridDescConfig) :: config
+   type(cudecompGridDescAutotuneOptions) :: options
+   integer :: pdims(2) ! pr x pc pencils
+   integer :: gdims(3) ! global grid dimensions
+   integer :: halo(3) ! halo extensions
+   integer :: halo_ext ! 0 no halo, 1 means 1 halo
+   type(cudecompPencilInfo) :: piX, piY, piZ  ! size of the pencils in x- y- and z-configuration
+   integer(8) :: nElemX, nElemY, nElemZ, nElemWork, nElemWork_halo
+   logical :: halo_periods(3)
+end module cudecompvar
 
 
 module velocity

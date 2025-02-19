@@ -11,7 +11,8 @@ Log of changes/status of the porting
 - 14/02/25: Pencil update on y and z look also fine and working, all basic elements seems to be ready. cuDecomp updated to (#52), version 0.4.2, Tested on Leonardo up to 16 nodes (with the makefile with -cuda + -Wl, relax). The makefile issue is present only on Leonardo where cuda is not present in the same folder.
 - 15/02/25: General structure of the code inializated and division in substeps, rhsp and p as input and output for Poisson.
 - 17/02/25: Cleaning and use of module.f90 and readinput.f90, more variable included in the modules. Temporal loop created. Soon merging with main repository?
-- 18/02/25: Solvde issue on makefile and forced linking (working also in Leonardo)
+- 18/02/25: Fixed issue on makefile and forced linking (working also in Leonardo), flow field initialization looks of for different PR and PC; MPI output in parallel; tested different grid resolutions (up to 1024^3).
+- 19/02/25: Phase-field initialization and MPI I/O of phase variables seem fine.
 
 
 # Multi-GPU version status
@@ -22,9 +23,9 @@ Log of changes/status of the porting
 - Skeleton of the code  ✅
 - Halo updates test with CUDA ✅
 - Poisson solver scaling 🚧
-- Halo updates test with host_data use_device ❌
-- Flow file initialization ✅
-- Phase-field initialization
+- Halo updates test with host_data use_device ✅
+- Flow field initialization ✅
+- Phase-field initialization ✅
 - Projection step ❌
 - Correction step ❌
 - Forcing ❌
@@ -32,12 +33,12 @@ Log of changes/status of the porting
 - Drop oscillation validation ❌
 - Full code scaling ❌
 - MPI writing (no halo)  ✅
-- Serial reading (issue with Leonardo) ❌
+- Serial reading (to avoid issue with Leonardo) ❌
 
 
 # Run the code
 
 - Compile first the cuDecomp library using *_lib.sh, the resulting modules and library will be located in cuDecomp/build/lib and cuDecomp/build/include
 - Double check cuDecomp building is fine (must be compiled using HPC-SDK)
-- Single folder: contains the single GPU version of the code (see MHIT36 repository for further details)
+- Single folder: contains the single GPU version of the code (see MHIT36 repository for further details), no MPI required.
 - Multi folder: multi GPU version of the code (work in progress). Use local.sh or leo.sh to compile and run the code (see porting status above); the multi GPU version relies on cuDecomp for Pencil Transposition and halo exchanges.

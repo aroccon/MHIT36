@@ -27,7 +27,7 @@ read(55,*) k0
 ! phase-field parameters
 read(55,*) radius
 read(55,*) sigma
-read(55,*) eps   
+read(55,*) epsr   
 
 
 ! compute pre-defined constant 
@@ -37,6 +37,7 @@ dx = lx/nx
 dxi=1.d0/dx
 ddxi=1.d0/dx/dx
 rhoi=1.d0/rho
+eps=epsr*dx
 
 if (rank .eq. 0) then
     !enable/disable for debug check parameters
@@ -51,10 +52,10 @@ if (rank .eq. 0) then
     write(*,*) "Tstart  ", tstart
     write(*,*) "Tfin    ", tfin
     write(*,*) "Dump    ", dump
-    !write(*,*) "Inflow  ", inflow
-    !write(*,*) "Deltat  ", dt
-    !write(*,*) "Mu      ", mu
-    !write(*,*) "Rho     ", rho
+    write(*,*) "Inflow  ", inflow
+    write(*,*) "Deltat  ", dt
+    write(*,*) "Mu      ", mu
+    write(*,*) "Rho     ", rho
     !write(*,*) "f1,f2,f3,k0", f1,f2,f3,k0
     !write(*,*) "Radius  ", radius
     !write(*,*) "Sigma   ", sigma

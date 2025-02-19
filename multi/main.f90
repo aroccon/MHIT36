@@ -6,9 +6,11 @@ use cudecomp
 use cufft
 use mpi
 use velocity 
+use phase
 use param
 use mpivar
 use cudecompvar
+
 
 implicit none
 ! grid dimensions
@@ -31,9 +33,8 @@ complex(8), pointer, device, contiguous :: work_d(:), work_halo_d(:)
 character(len=40) :: namefile
 ! Code variables
 
-
 ! Enable or disable phase field (acceleration eneabled by default)
-#define phiflag 0
+#define phiflag 1
 
 !########################################################################################################################################
 ! 1. INITIALIZATION OF MPI AND cuDECOMP AUTOTUNING : START
@@ -52,8 +53,8 @@ ierr = cudaSetDevice(localRank) !assign GPU to MPI rank
 call readinput
 
 ! hard coded, then from input
-pr = 1
-pc = 2
+pr = 2
+pc = 1
 halo_ext=1
 comm_backend = CUDECOMP_TRANSPOSE_COMM_MPI_P2P
 
@@ -111,10 +112,8 @@ nElemY = piY%size
 CHECK_CUDECOMP_EXIT(cudecompGetPencilInfo(handle, grid_desc, piZ, 3))
 nElemZ = piZ%size
 
-! Get workspace sizes
-! For transpostion
+! Get workspace sizes for transpose (1st row) and halo (2nd row)
 CHECK_CUDECOMP_EXIT(cudecompGetTransposeWorkspaceSize(handle, grid_desc, nElemWork))
-! For halo
 CHECK_CUDECOMP_EXIT(cudecompGetHaloWorkspaceSize(handle, grid_desc, 1, halo, nElemWork_halo))
 
 
@@ -186,24 +185,21 @@ allocate(p(piX%shape(1), piX%shape(2), piX%shape(3)))
 !allocate variables
 !NS variables
 allocate(u(piX%shape(1),piX%shape(2),piX%shape(3)),v(piX%shape(1),piX%shape(2),piX%shape(3)),w(piX%shape(1),piX%shape(2),piX%shape(3))) !velocity vector
-!allocate(p(nx,nx,nx),rhsp(nx,nx,nx))  ! p and rhsp in physical space
-!allocate(pc(nx/2+1,nx,nx),rhspc(nx/2+1,nx,nx)) ! p and rhsp in complex space
 !allocate(ustar(nx,nx,nx),vstar(nx,nx,nx),wstar(nx,nx,nx)) ! provisional velocity field
 !allocate(rhsu(nx,nx,nx),rhsv(nx,nx,nx),rhsw(nx,nx,nx)) ! rhs of u,v and w
 !PFM variables
 #if phiflag == 1
-!allocate(phi(piX%shape(1), piX%shape(2), piX%shape(3)),rhsphi(piX%shape(1), piX%shape(2), piX%shape(3)))
+allocate(phi(piX%shape(1), piX%shape(2), piX%shape(3)),rhsphi(piX%shape(1), piX%shape(2), piX%shape(3)))
 !allocate(normx(nx,nx,nx),normy(nx,nx,nx),normz(nx,nx,nx))
 !allocate(curv(nx,nx,nx),gradphix(nx,nx,nx),gradphiy(nx,nx,nx),gradphiz(nx,nx,nx))
 !allocate(fxst(nx,nx,nx),fyst(nx,nx,nx),fzst(nx,nx,nx)) ! surface tension forces
 #endif
 
-! work_d is the device array for transposition (CUDA)
+! allocate arrays for transpositions and halo exchanges 
 CHECK_CUDECOMP_EXIT(cudecompMalloc(handle, grid_desc, work_d, nElemWork))
-! work_halo_d is the device array for halo exchanges (CUDA)
 CHECK_CUDECOMP_EXIT(cudecompMalloc(handle, grid_desc, work_halo_d, nElemWork_halo))
 !########################################################################################################################################
-! END STEP2: ALLOCATE ARRAYS)
+! END STEP2: ALLOCATE ARRAYS
 !########################################################################################################################################
 
 
@@ -224,9 +220,9 @@ CHECK_CUDECOMP_EXIT(cudecompMalloc(handle, grid_desc, work_halo_d, nElemWork_hal
 !########################################################################################################################################
 ! START STEP 3: FLOW AND PHASE FIELD INIT
 !########################################################################################################################################
-! 3.1 Read from data without halo grid points (avoid out-of-bound)
+! 3.1 Read/initialize from data without halo grid points (avoid out-of-bound if reading usin MPI I/O)
 ! 3.2 Call halo exchnages along Y and Z for u,v,w and phi
-!initialize velocity field
+
 if (restart .eq. 0) then !fresh start Taylor Green or read from file in init folder
    if (rank.eq.0) write(*,*) "Initialize velocity field (fresh start)"
    if (inflow .eq. 0) then
@@ -257,30 +253,44 @@ if (restart .eq. 1) then !restart, ignore inflow and read the tstart field
    !call readfield_restart(tstart,3)
 endif
 
-uc=maxval(u)
-vc=maxval(v)
-wc=maxval(w)
-umax=max(wc,max(uc,vc))
-cou=umax*dt*dxi
-!if (rank.eq.9) write(*,*) "Umax and Courant number:",umax, cou
+! update halo cells along y and z directions
+!$acc host_data use_device(u)
+CHECK_CUDECOMP_EXIT(cudecompUpdateHalosX(handle, grid_desc, u, work_halo_d, CUDECOMP_DOUBLE, piX%halo_extents, halo_periods, 2))
+CHECK_CUDECOMP_EXIT(cudecompUpdateHalosX(handle, grid_desc, u, work_halo_d, CUDECOMP_DOUBLE, piX%halo_extents, halo_periods, 3))
+!$acc end host_data 
+!$acc host_data use_device(v)
+CHECK_CUDECOMP_EXIT(cudecompUpdateHalosX(handle, grid_desc, v, work_halo_d, CUDECOMP_DOUBLE, piX%halo_extents, halo_periods, 2))
+CHECK_CUDECOMP_EXIT(cudecompUpdateHalosX(handle, grid_desc, v, work_halo_d, CUDECOMP_DOUBLE, piX%halo_extents, halo_periods, 3))
+!$acc end host_data 
+!$acc host_data use_device(w)
+CHECK_CUDECOMP_EXIT(cudecompUpdateHalosX(handle, grid_desc, w, work_halo_d, CUDECOMP_DOUBLE, piX%halo_extents, halo_periods, 2))
+CHECK_CUDECOMP_EXIT(cudecompUpdateHalosX(handle, grid_desc, w, work_halo_d, CUDECOMP_DOUBLE, piX%halo_extents, halo_periods, 3))
+!$acc end host_data 
 
 ! initialize phase-field
 #if phiflag == 1
-!if (restart .eq. 0) then
-!    write(*,*) 'Initialize phase field (fresh start)'
-!    do k = 1,nx
-!        do j= 1,nx
-!            do i = 1,nx
-!                pos=(x(i)-lx/2)**2d0 +  (x(j)-lx/2)**2d0 + (x(k)-lx/2)**2d0
-!                phi(i,j,k) = 0.5d0*(1.d0-tanh((sqrt(pos)-radius)/2/eps))
-!            enddo
-!        enddo
-!    enddo
-!endif
-!if (restart .eq. 1) then
-!    write(*,*) "Initialize phase-field (restart, from output folder), iteration:", tstart
+if (restart .eq. 0) then
+    if (rank.eq.0) write(*,*) 'Initialize PFM Spherical drop (fresh start)'
+    do kl = 1+halo_ext, piX%shape(3)-halo_ext
+      kg = piX%lo(3) + kl - 1 
+      do jl = 1+halo_ext, piX%shape(2)-halo_ext
+         jg = piX%lo(2) + jl - 1 
+         do i = 1, piX%shape(1)
+                pos=(x(i)-lx/2)**2d0 +  (x(jg)-lx/2)**2d0 + (x(kg)-lx/2)**2d0
+                phi(i,jl,kl) = 0.5d0*(1.d0-tanh((sqrt(pos)-radius)/2/eps))
+            enddo
+        enddo
+    enddo
+endif
+if (restart .eq. 1) then
+    write(*,*) "Initialize phase-field (restart, from output folder), iteration:", tstart
 !    !call readfield_restart(tstart,5)
-!endif
+endif
+! update halo
+!$acc host_data use_device(phi)
+CHECK_CUDECOMP_EXIT(cudecompUpdateHalosX(handle, grid_desc, phi, work_halo_d, CUDECOMP_DOUBLE, piX%halo_extents, halo_periods, 2))
+CHECK_CUDECOMP_EXIT(cudecompUpdateHalosX(handle, grid_desc, phi, work_halo_d, CUDECOMP_DOUBLE, piX%halo_extents, halo_periods, 3))
+!$acc end host_data 
 #endif
 
 !Save initial fields (only if a fresh start)
@@ -290,9 +300,9 @@ if (restart .eq. 0) then
    call writefield(tstart,2)
    call writefield(tstart,3)
    !call writefield(tstart,4)
-   !#if phiflag == 1
-   !call writefield(tstart,5)
-   !#endif
+   #if phiflag == 1
+   call writefield(tstart,5)
+   #endif
 endif
 !########################################################################################################################################
 ! END STEP 3: FLOW AND PHASE FIELD INIT
