@@ -24,6 +24,7 @@ integer :: status
 ! other variables (wavenumber, grid location)
 real(8), allocatable :: x(:), kx(:)
 integer :: i,j,k,il,jl,kl,ig,jg,kg,t
+integer :: im,ip,jm,jp,km,kp
 integer, parameter :: Mx = 1, My = 0, Mz = 0
 real(8), device, allocatable :: kx_d(:)
 ! working arrays
@@ -34,7 +35,7 @@ character(len=40) :: namefile
 ! Code variables
 
 ! Enable or disable phase field (acceleration eneabled by default)
-#define phiflag 1
+#define phiflag 0
 
 !########################################################################################################################################
 ! 1. INITIALIZATION OF MPI AND cuDECOMP AUTOTUNING : START
@@ -145,13 +146,11 @@ status = cufftPlan1D(planZ, nz, CUFFT_Z2Z, batchSize)
 if (status /= CUFFT_SUCCESS) write(*,*) rank, ': Error in creating Z plan'
 
 ! define grid
-! to test the code (impose initial condition, can be then removed)
 allocate(x(nx),kx(nx))
 x(1)= 0
 do i = 2, nx
    x(i) = x(i-1) + dx
 enddo
-
 do i = 1, nx/2
    kx(i) = (i-1)*(twoPi/lx)
 enddo
@@ -185,8 +184,8 @@ allocate(p(piX%shape(1), piX%shape(2), piX%shape(3)))
 !allocate variables
 !NS variables
 allocate(u(piX%shape(1),piX%shape(2),piX%shape(3)),v(piX%shape(1),piX%shape(2),piX%shape(3)),w(piX%shape(1),piX%shape(2),piX%shape(3))) !velocity vector
-!allocate(ustar(nx,nx,nx),vstar(nx,nx,nx),wstar(nx,nx,nx)) ! provisional velocity field
-!allocate(rhsu(nx,nx,nx),rhsv(nx,nx,nx),rhsw(nx,nx,nx)) ! rhs of u,v and w
+allocate(ustar(piX%shape(1),piX%shape(2),piX%shape(3)),vstar(piX%shape(1),piX%shape(2),piX%shape(3)),wstar(piX%shape(1),piX%shape(2),piX%shape(3))) ! provisional velocity field
+allocate(rhsu(piX%shape(1),piX%shape(2),piX%shape(3)),rhsv(piX%shape(1),piX%shape(2),piX%shape(3)),rhsw(piX%shape(1),piX%shape(2),piX%shape(3))) ! right hand side u,v,w
 !PFM variables
 #if phiflag == 1
 allocate(phi(piX%shape(1), piX%shape(2), piX%shape(3)),rhsphi(piX%shape(1), piX%shape(2), piX%shape(3)))
@@ -227,14 +226,14 @@ if (restart .eq. 0) then !fresh start Taylor Green or read from file in init fol
    if (rank.eq.0) write(*,*) "Initialize velocity field (fresh start)"
    if (inflow .eq. 0) then
       if (rank.eq.0) write(*,*) "Initialize Taylor-green"
-      do kl = 1+halo_ext, piX%shape(3)-halo_ext
-         kg = piX%lo(3) + kl - 1 
-         do jl = 1+halo_ext, piX%shape(2)-halo_ext
-            jg = piX%lo(2) + jl - 1 
+      do k = 1+halo_ext, piX%shape(3)-halo_ext
+         kg = piX%lo(3) + k - 1 
+         do j = 1+halo_ext, piX%shape(2)-halo_ext
+            jg = piX%lo(2) + j - 1 
             do i = 1, piX%shape(1)
-               u(i,jl,kl) =   sin(x(i))*cos(x(jg))*cos(x(kg))
-               v(i,jl,kl) =  -cos(x(i))*sin(x(jg))*cos(x(kg))
-               w(i,jl,kl) =  0.d0
+               u(i,j,k) =   sin(x(i))*cos(x(jg))*cos(x(kg))
+               v(i,j,k) =  -cos(x(i))*sin(x(jg))*cos(x(kg))
+               w(i,j,k) =  0.d0
             enddo
          enddo
       enddo
@@ -271,13 +270,13 @@ CHECK_CUDECOMP_EXIT(cudecompUpdateHalosX(handle, grid_desc, w, work_halo_d, CUDE
 #if phiflag == 1
 if (restart .eq. 0) then
     if (rank.eq.0) write(*,*) 'Initialize PFM Spherical drop (fresh start)'
-    do kl = 1+halo_ext, piX%shape(3)-halo_ext
-      kg = piX%lo(3) + kl - 1 
-      do jl = 1+halo_ext, piX%shape(2)-halo_ext
-         jg = piX%lo(2) + jl - 1 
+    do k = 1+halo_ext, piX%shape(3)-halo_ext
+      kg = piX%lo(3) + k - 1 
+      do j = 1+halo_ext, piX%shape(2)-halo_ext
+         jg = piX%lo(2) + j - 1 
          do i = 1, piX%shape(1)
                 pos=(x(i)-lx/2)**2d0 +  (x(jg)-lx/2)**2d0 + (x(kg)-lx/2)**2d0
-                phi(i,jl,kl) = 0.5d0*(1.d0-tanh((sqrt(pos)-radius)/2/eps))
+                phi(i,j,k) = 0.5d0*(1.d0-tanh((sqrt(pos)-radius)/2/eps))
             enddo
         enddo
     enddo
@@ -329,6 +328,7 @@ tstart=tstart+1
 do t=tstart,tfin
 
     if (rank.eq.0) write(*,*) "Time step",t,"of",tfin
+    call cpu_time(times)
 
    !########################################################################################################################################
    ! START STEP 4: PHASE-FIELD SOLVER (EXPLICIT)
@@ -349,15 +349,148 @@ do t=tstart,tfin
 
 
    !########################################################################################################################################
-   ! START STEP 5: USTAR COMPUTATION
+   ! START STEP 5: USTAR COMPUTATION (PROJECTION STEP)
    !########################################################################################################################################
    ! 5.1 compute rhs 
    ! 5.2 obtain ustar
    ! 5.3 Call halo exchnages along Y and Z for u,v,w
-   ! 5.4 Compute divergence (i.e. the rhsp)
+
+   ! Projection step, convective terms
+   ! 5.1a Convective terms NS
+   ! Loop on inner nodes
+   !$acc kernels
+   do k=1+halo_ext, piX%shape(3)-halo_ext
+      do j=1+halo_ext, piX%shape(2)-halo_ext
+         do i=1,nx
+            ip=i+1
+            jp=j+1
+            kp=k+1
+            im=i-1
+            jm=j-1
+            km=k-1
+            ! Manual periodicity ony along x (x-pencil), along y and z directions use halos
+            if (ip .gt. nx) ip=1  
+            if (im .lt. 1) im=nx
+            ! compute the products (conservative form)
+            h11 = (u(ip,j,k)+u(i,j,k))*(u(ip,j,k)+u(i,j,k))     - (u(i,j,k)+u(im,j,k))*(u(i,j,k)+u(im,j,k))
+            h12 = (u(i,jp,k)+u(i,j,k))*(v(i,jp,k)+v(im,jp,k))   - (u(i,j,k)+u(i,jm,k))*(v(i,j,k)+v(im,j,k))
+            h13 = (u(i,j,kp)+u(i,j,k))*(w(i,j,kp)+w(im,j,kp))   - (u(i,j,k)+u(i,j,km))*(w(i,j,k)+w(im,j,k))
+            h21 = (u(ip,j,k)+u(ip,jm,k))*(v(ip,j,k)+v(i,j,k))   - (u(i,j,k)+u(i,jm,k))*(v(i,j,k)+v(im,j,k))
+            h22 = (v(i,jp,k)+v(i,j,k))*(v(i,jp,k)+v(i,j,k))     - (v(i,j,k)+v(i,jm,k))*(v(i,j,k)+v(i,jm,k))
+            h23 = (w(i,j,kp)+w(i,jm,kp))*(v(i,j,kp)+v(i,j,k))   - (w(i,j,k)+w(i,jm,k))*(v(i,j,k)+v(i,j,km))
+            h31 = (w(ip,j,k)+w(i,j,k))*(u(ip,j,k)+u(ip,j,km))   - (w(i,j,k)+w(im,j,k))*(u(i,j,k)+u(i,j,km))
+            h32 = (v(i,jp,k)+v(i,jp,km))*(w(i,jp,k)+w(i,j,k))   - (v(i,j,k)+v(i,j,km))*(w(i,j,k)+w(i,jm,k))
+            h33 = (w(i,j,kp)+w(i,j,k))*(w(i,j,kp)+w(i,j,k))     - (w(i,j,k)+w(i,j,km))*(w(i,j,k)+w(i,j,km))
+            ! compute the derivative
+            h11=h11*0.25d0*dxi
+            h12=h12*0.25d0*dxi
+            h13=h13*0.25d0*dxi
+            h21=h21*0.25d0*dxi
+            h22=h22*0.25d0*dxi
+            h23=h23*0.25d0*dxi
+            h31=h31*0.25d0*dxi
+            h32=h32*0.25d0*dxi
+            h33=h33*0.25d0*dxi
+            ! add to the rhs
+            rhsu(i,j,k)=-(h11+h12+h13)
+            rhsv(i,j,k)=-(h21+h22+h23)
+            rhsw(i,j,k)=-(h31+h32+h33)
+         enddo
+      enddo
+   enddo
+   !$acc end kernels
+   ! to be removed - debug only
+   !write(namefile,'(a,i3.3,a)') 'rhsu_',rank,'.dat'
+   !open(unit=55,file=namefile,form='unformatted',position='append',access='stream',status='new')
+   !write(55) rhsu
+   !close(55)
+
+   ! 5.1b Compute viscous terms
+   !$acc kernels
+   do k=1+halo_ext, piX%shape(3)-halo_ext
+      do j=1+halo_ext, piX%shape(2)-halo_ext
+          do i=1,nx
+            ip=i+1
+            jp=j+1
+            kp=k+1
+            im=i-1
+            jm=j-1
+            km=k-1
+            if (ip .gt. nx) ip=1
+            if (im .lt. 1) im=nx
+            h11 = mu*(u(ip,j,k)-2.d0*u(i,j,k)+u(im,j,k))*ddxi
+            h12 = mu*(u(i,jp,k)-2.d0*u(i,j,k)+u(i,jm,k))*ddxi
+            h13 = mu*(u(i,j,kp)-2.d0*u(i,j,k)+u(i,j,km))*ddxi
+            h21 = mu*(v(ip,j,k)-2.d0*v(i,j,k)+v(im,j,k))*ddxi
+            h22 = mu*(v(i,jp,k)-2.d0*v(i,j,k)+v(i,jm,k))*ddxi
+            h23 = mu*(v(i,j,kp)-2.d0*v(i,j,k)+v(i,j,km))*ddxi
+            h31 = mu*(w(ip,j,k)-2.d0*w(i,j,k)+w(im,j,k))*ddxi
+            h32 = mu*(w(i,jp,k)-2.d0*w(i,j,k)+w(i,jm,k))*ddxi
+            h33 = mu*(w(i,j,kp)-2.d0*w(i,j,k)+w(i,j,km))*ddxi
+            rhsu(i,j,k)=rhsu(i,j,k)+(h11+h12+h13)*rhoi
+            rhsv(i,j,k)=rhsv(i,j,k)+(h21+h22+h23)*rhoi
+            rhsw(i,j,k)=rhsw(i,j,k)+(h31+h32+h33)*rhoi
+          enddo
+      enddo
+   enddo
+   !$acc end kernels
+
+   ! 5.1c NS forcing
+   !$acc kernels
+   do k = 1+halo_ext, piX%shape(3)-halo_ext
+      kg = piX%lo(3) + k - 1 
+      do j = 1+halo_ext, piX%shape(2)-halo_ext
+         jg = piX%lo(2) + j - 1 
+         do i = 1, piX%shape(1)
+            ! ABC forcing
+            rhsu(i,j,k)= rhsu(i,j,k) + f3*sin(k0*x(kg))+f2*cos(k0*x(jg))
+            rhsv(i,j,k)= rhsv(i,j,k) + f1*sin(k0*x(i))+f3*cos(k0*x(kg))
+            rhsw(i,j,k)= rhsw(i,j,k) + f2*sin(k0*x(jg))+f1*cos(k0*x(i))
+            ! TG Forcing
+            !rhsu(i,j,k)= rhsu(i,j,k) + f1*sin(k0*x(i))*cos(k0*x(j))*cos(k0*x(k))
+            !rhsv(i,j,k)= rhsv(i,j,k) - f1*cos(k0*x(i))*sin(k0*x(j))*sin(k0*x(k))
+          enddo
+      enddo
+   enddo
+   !$acc end kernels
+
+   ! Surface tension forces
+   #if phiflag == 1
+   ! Copy from single version, to be implemented
+   #endif
+
+   ! 5.2 find u, v and w star (explicit Eulero), only in the inner nodes
+   !$acc kernels
+   do k=1,nx
+      do j=1,nx
+          do i=1,nx
+              ustar(i,j,k) = u(i,j,k) + dt*rhsu(i,j,k)
+              vstar(i,j,k) = v(i,j,k) + dt*rhsv(i,j,k)
+              wstar(i,j,k) = w(i,j,k) + dt*rhsw(i,j,k)
+          enddo
+      enddo
+   enddo
+   !$acc end kernels
+
+   ! 5.3 update halos (y and z directions), required to then compute the RHS of Poisson equation because of staggered grid
+   !$acc host_data use_device(ustar)
+   CHECK_CUDECOMP_EXIT(cudecompUpdateHalosX(handle, grid_desc, ustar, work_halo_d, CUDECOMP_DOUBLE, piX%halo_extents, halo_periods, 2))
+   CHECK_CUDECOMP_EXIT(cudecompUpdateHalosX(handle, grid_desc, ustar, work_halo_d, CUDECOMP_DOUBLE, piX%halo_extents, halo_periods, 3))
+   !$acc end host_data 
+   !$acc host_data use_device(vstar)
+   CHECK_CUDECOMP_EXIT(cudecompUpdateHalosX(handle, grid_desc, vstar, work_halo_d, CUDECOMP_DOUBLE, piX%halo_extents, halo_periods, 2))
+   CHECK_CUDECOMP_EXIT(cudecompUpdateHalosX(handle, grid_desc, vstar, work_halo_d, CUDECOMP_DOUBLE, piX%halo_extents, halo_periods, 3))
+   !$acc end host_data 
+   !$acc host_data use_device(wstar)
+   CHECK_CUDECOMP_EXIT(cudecompUpdateHalosX(handle, grid_desc, wstar, work_halo_d, CUDECOMP_DOUBLE, piX%halo_extents, halo_periods, 2))
+   CHECK_CUDECOMP_EXIT(cudecompUpdateHalosX(handle, grid_desc, wstar, work_halo_d, CUDECOMP_DOUBLE, piX%halo_extents, halo_periods, 3))
+   !$acc end host_data 
+
    !########################################################################################################################################
    ! END STEP 5: USTAR COMPUTATION 
    !########################################################################################################################################
+
+
 
 
 
@@ -402,7 +535,6 @@ do t=tstart,tfin
    enddo
    end block
 
-   call cpu_time(times)
    ! H2D transfer using CUDA
    psi_d = psi
 

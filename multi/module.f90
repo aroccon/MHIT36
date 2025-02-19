@@ -1,5 +1,5 @@
 module param
-    integer, parameter :: nx=64
+    integer, parameter :: nx=128
     integer :: ny=nx,nz=nx
     double precision :: pi,lx,dx,dxi,ddxi,rhoi,twopi
     integer :: restart,tstart,tfin,dump
@@ -37,9 +37,12 @@ end module cudecompvar
 
 module velocity
    double precision, allocatable :: u(:,:,:), v(:,:,:), w(:,:,:)
+   double precision, allocatable :: ustar(:,:,:), vstar(:,:,:), wstar(:,:,:)
+   double precision, allocatable :: rhsu(:,:,:), rhsv(:,:,:), rhsw(:,:,:)
    complex(8), allocatable :: rhsp_complex(:,:,:)
    real(8), allocatable :: rhsp(:,:,:), p(:,:,:)
    real(8) :: uc,vc,wc,umax,cou
+   real(8) :: h11,h12,h13,h21,h22,h23,h31,h32,h33
 end module velocity
 
 

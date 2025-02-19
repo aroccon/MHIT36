@@ -12,7 +12,7 @@ Log of changes/status of the porting
 - 15/02/25: General structure of the code inializated and division in substeps, rhsp and p as input and output for Poisson.
 - 17/02/25: Cleaning and use of module.f90 and readinput.f90, more variable included in the modules. Temporal loop created. Soon merging with main repository?
 - 18/02/25: Fixed issue on makefile and forced linking (working also in Leonardo), flow field initialization looks of for different PR and PC; MPI output in parallel; tested different grid resolutions (up to 1024^3).
-- 19/02/25: Phase-field initialization and MPI I/O of phase variables seem fine.
+- 19/02/25: Phase-field initialization and MPI I/O of phase variables seem fine. Implementation of the projection step (convective, diffusive and forcing); halo updates of ustar, vstar and wstar also implemented.
 
 
 # Multi-GPU version status
@@ -26,9 +26,10 @@ Log of changes/status of the porting
 - Halo updates test with host_data use_device ✅
 - Flow field initialization ✅
 - Phase-field initialization ✅
-- Projection step ❌
+- Projection step implemented ✅
+- Validation of projection step 🚧
 - Correction step ❌
-- Forcing ❌
+- Forcing ✅
 - HIT validation ❌
 - Drop oscillation validation ❌
 - Full code scaling ❌
