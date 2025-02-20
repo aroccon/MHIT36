@@ -298,7 +298,7 @@ if (restart .eq. 0) then
    call writefield(tstart,1)
    call writefield(tstart,2)
    call writefield(tstart,3)
-   !call writefield(tstart,4)
+   call writefield(tstart,4)
    #if phiflag == 1
    call writefield(tstart,5)
    #endif
@@ -750,9 +750,9 @@ do t=tstart,tfin
       write(*,*) "Saving output files"
           ! write velocity and pressure fiels (1-4)
          call writefield(t,1)
-         !call writefield(t,2)
-         !call writefield(t,3)
-         !call writefield(t,4)
+         call writefield(t,2)
+         call writefield(t,3)
+         call writefield(t,4)
      !#if phiflag == 1
          ! write phase-field (5)
          ! call writefield(t,5)
