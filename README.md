@@ -14,7 +14,7 @@ Log of changes/status of the porting
 - 18/02/25: Fixed issue on makefile and forced linking (working also in Leonardo), flow field initialization looks of for different PR and PC; MPI output in parallel; tested different grid resolutions (up to 1024^3).
 - 19/02/25: Phase-field initialization and MPI I/O of phase variables seem fine. Implementation of the projection step (convective, diffusive and forcing); halo updates of ustar, vstar and wstar also implemented. Issue with 1536^3 and 2048^3 on 8 nodes (32 GPUs).
 poisson.f90 has the same issue (which is the one provided by Nvidia).
-- 20/02/25: Problem on large grid (1536^3 and 2048^3) has been fixed (Thank you Josh), there was an integer overflwo in the normalization.
+- 20/02/25: Problem on large grid (1536^3 and 2048^3) has been fixed (Thank you Josh), there was an integer overflow in the normalization; projection step implemented; first run on Local machine of the full NS solver.
 
 # Multi-GPU version status
 
@@ -23,19 +23,20 @@ poisson.f90 has the same issue (which is the one provided by Nvidia).
 - Read input files ✅
 - Skeleton of the code  ✅
 - Halo updates test with CUDA ✅
-- Poisson solver scaling 🚧
+- Poisson solver scaling ✅
 - Halo updates test with host_data use_device ✅
 - Flow field initialization ✅
 - Phase-field initialization ✅
 - Projection step implemented ✅
-- Validation of projection step 🚧
-- Correction step ❌
+- Validation of projection step ✅ (implemented, not validated)
+- Correction step ✅ (implemented, not validated)
 - Forcing ✅
 - HIT validation ❌
 - Drop oscillation validation ❌
 - Full code scaling ❌
 - MPI writing (no halo)  ✅
 - Serial reading (to avoid issue with Leonardo) ❌
+- Courant number check (MPI reduction) ❌
 
 
 # Run the code
@@ -44,3 +45,4 @@ poisson.f90 has the same issue (which is the one provided by Nvidia).
 - Double check cuDecomp building is fine (must be compiled using HPC-SDK)
 - Single folder: contains the single GPU version of the code (see MHIT36 repository for further details), no MPI required.
 - Multi folder: multi GPU version of the code (work in progress). Use local.sh or leo.sh to compile and run the code (see porting status above); the multi GPU version relies on cuDecomp for Pencil Transposition and halo exchanges.
+- Autotuning of the multi-GPY version: leave pr=0 and pc=0, cuDecomp will perform an autotuning at the start finding the best decomposition (the only input is the total number of tasks). Everything should be automatic in the code (as it is obtained from cuDecomp variable)

@@ -459,10 +459,10 @@ do t=tstart,tfin
    ! Copy from single version, to be implemented
    #endif
 
-   ! 5.2 find u, v and w star (explicit Eulero), only in the inner nodes
+   ! 5.2 find u, v and w star (explicit Eulero), only in the inner nodes 
    !$acc kernels
-   do k=1,nx
-      do j=1,nx
+   do k=1+halo_ext, piX%shape(3)-halo_ext
+      do j=1+halo_ext, piX%shape(2)-halo_ext
           do i=1,nx
               ustar(i,j,k) = u(i,j,k) + dt*rhsu(i,j,k)
               vstar(i,j,k) = v(i,j,k) + dt*rhsv(i,j,k)
@@ -503,6 +503,26 @@ do t=tstart,tfin
    !########################################################################################################################################
    ! initialize phi and analytical solution
    ! for the moment keep it similar to the cuDecomp example, can be optimized in the future 
+   ! 6.1 Compute rhs of Poisson equation div*ustar: divergence at the cell center 
+   ! I'vd done the halo updates so to compute the divergence at the pencil border i have the ustar from the halo
+   !$acc kernels
+   do k=1+halo_ext, piX%shape(3)-halo_ext
+      do j=1+halo_ext, piX%shape(2)-halo_ext
+          do i=1,nx
+              ip=i+1
+              jp=j+1
+              kp=k+1
+              if (ip > nx) ip=1
+              rhsp(i,j,k) = (rho*dxi/dt)*(ustar(ip,j,k)-ustar(i,j,k))
+              rhsp(i,j,k) = rhsp(i,j,k) + (rho*dxi/dt)*(vstar(i,jp,k)-vstar(i,j,k))
+              rhsp(i,j,k) = rhsp(i,j,k) + (rho*dxi/dt)*(wstar(i,j,kp)-wstar(i,j,k))
+          enddo
+      enddo
+   enddo
+   !$acc end kernels
+
+   ! Feed rhsp into the Poisson solver, this part can be optimized in the future (less copies of arrays)
+
    block
    complex(8), pointer :: psi3(:,:,:)
    call c_f_pointer(c_loc(psi), psi3, [piX%shape(1), piX%shape(2), piX%shape(3)])
@@ -513,9 +533,9 @@ do t=tstart,tfin
       do jl = 1, piX%shape(2)
          jg = piX%lo(2) + jl - 1 
          do i = 1, piX%shape(1)
-            !rhsp_complex(i,jl,kl) = cmplx(rhsp(i,jl,kl),0.0) !<- use this once solver is ok
+            rhsp_complex(i,jl,kl) = cmplx(rhsp(i,jl,kl),0.0) !<- use this once solver is ok
             ! For Poisson testing (knwon solutions)
-            rhsp_complex(i,jl,kl) = cmplx(sin(Mx*x(i)),0.0) 
+            ! rhsp_complex(i,jl,kl) = cmplx(sin(Mx*x(i)),0.0) 
             !rhsp_complex(i,jl,kl) = cmplx(sin(Mx*x(i))*sin(My*x(jg))*sin(Mz*x(kg)),0.0)  ! RHS of Poisson equation
          enddo
       enddo
@@ -630,18 +650,19 @@ do t=tstart,tfin
    real(8) :: err, maxErr = -1.0, err2
    call c_f_pointer(c_loc(psi), psi3, [piX%shape(1), piX%shape(2), piX%shape(3)])
 
-   !Check errro on complex (ua and psi3 are complex)
-   do kl = 1, piX%shape(3)
-      do jl = 1, piX%shape(2)
-         do i = 1, piX%shape(1)
-            err = abs(ua(i,jl,kl)-psi3(i,jl,kl))
-            if (err > maxErr) maxErr = err
-         enddo
-      enddo
-   enddo
+   !!Check errro on complex (ua and psi3 are complex)
+   !do kl = 1, piX%shape(3)
+   !   do jl = 1, piX%shape(2)
+   !      do i = 1, piX%shape(1)
+   !         err = abs(ua(i,jl,kl)-psi3(i,jl,kl))
+   !         if (err > maxErr) maxErr = err
+   !      enddo
+   !   enddo
+   !enddo
 
    ! take back p from psi3
    ! i can span also the halo because they have been already updated
+   !$acc kernels
    do kl = 1, piX%shape(3)
       do jl = 1, piX%shape(2)
          do i = 1, piX%shape(1)
@@ -649,8 +670,9 @@ do t=tstart,tfin
          enddo
       enddo
    enddo
+   !$acc end kernels
 
-   write(*,"(' [', i0, '] Max Error: ', e12.6)") rank, maxErr
+   !write(*,"(' [', i0, '] Max Error: ', e12.6)") rank, maxErr
    end block
 
    ! For debug
@@ -679,8 +701,36 @@ do t=tstart,tfin
    !########################################################################################################################################
    ! START STEP 8: VELOCITY CORRECTION
    ! ########################################################################################################################################
-   ! 5.1 correct velocity 
-   ! 5.3 Call halo exchnages along Y and Z for u,v,w
+   ! 8.1 correct velocity 
+   ! 8.2 Call halo exchnages along Y and Z for u,v,w
+   ! Correct velocity, pressure has also the halo
+   !$acc kernels 
+   do k = 1+halo_ext, piX%shape(3)-+halo_ext
+      do j = 1+halo_ext, piX%shape(2)-+halo_ext
+         do i = 1, piX%shape(1) ! equal to nx (no halo on x)
+              im=i-1
+              if (im < 1) im=nx
+              u(i,j,k)=ustar(i,j,k) - dt/rho*(p(i,j,k)-p(im,j,k))*dxi
+              v(i,j,k)=vstar(i,j,k) - dt/rho*(p(i,j,k)-p(i,jm,k))*dxi
+              w(i,j,k)=wstar(i,j,k) - dt/rho*(p(i,j,k)-p(i,j,km))*dxi
+          enddo
+      enddo
+   enddo
+   !$acc end kernels 
+
+   ! 8.3 update halos (y and z directions), required to then compute the RHS of Poisson equation because of staggered grid
+   !$acc host_data use_device(u)
+   CHECK_CUDECOMP_EXIT(cudecompUpdateHalosX(handle, grid_desc, u, work_halo_d, CUDECOMP_DOUBLE, piX%halo_extents, halo_periods, 2))
+   CHECK_CUDECOMP_EXIT(cudecompUpdateHalosX(handle, grid_desc, u, work_halo_d, CUDECOMP_DOUBLE, piX%halo_extents, halo_periods, 3))
+   !$acc end host_data 
+   !$acc host_data use_device(v)
+   CHECK_CUDECOMP_EXIT(cudecompUpdateHalosX(handle, grid_desc, v, work_halo_d, CUDECOMP_DOUBLE, piX%halo_extents, halo_periods, 2))
+   CHECK_CUDECOMP_EXIT(cudecompUpdateHalosX(handle, grid_desc, v, work_halo_d, CUDECOMP_DOUBLE, piX%halo_extents, halo_periods, 3))
+   !$acc end host_data 
+   !$acc host_data use_device(w)
+   CHECK_CUDECOMP_EXIT(cudecompUpdateHalosX(handle, grid_desc, w, work_halo_d, CUDECOMP_DOUBLE, piX%halo_extents, halo_periods, 2))
+   CHECK_CUDECOMP_EXIT(cudecompUpdateHalosX(handle, grid_desc, w, work_halo_d, CUDECOMP_DOUBLE, piX%halo_extents, halo_periods, 3))
+   !$acc end host_data 
    !########################################################################################################################################
    ! END STEP 8: VELOCITY CORRECTION  
    !########################################################################################################################################
