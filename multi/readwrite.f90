@@ -1,5 +1,5 @@
 subroutine writefield(t,fieldn)
-! Output field, file is written in the src/output folder 
+! Output field, file is written in the /output folder 
 
 use velocity
 use phase
@@ -34,6 +34,7 @@ fstart=[piX%lo(1)-1,piX%lo(2)-1,piX%lo(3)-1]
 !write(*,*) "fstart", fstart
 allocate(out(p_size(1),p_size(2),p_size(3))) !<- halo removed 
  
+!write(*,*) "in readwrite"
 
 if (fieldn .eq. 1) then
   out=u(1:nx,1+halo_ext:piX%shape(2)-halo_ext,1+halo_ext:piX%shape(3)-halo_ext) !<- out only the inner parts (no halo)

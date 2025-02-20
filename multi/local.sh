@@ -5,7 +5,11 @@ PATH=$NVCOMPILERS/$NVARCH/23.7/compilers/bin:$PATH; export PATH
 export PATH=$NVCOMPILERS/$NVARCH/23.7/comm_libs/mpi/bin:$PATH
 export MANPATH=$MANPATH:$NVCOMPILERS/$NVARCH/23.7/comm_libs/mpi/man
 LD_LIBRARY_PATH=/home/milton/MHIT36_cuDecomp/cuDecomp/build/lib
+#clean folder output
+rm -rf output
+mkdir output
 cp makefile_local Makefile
+#rm *.dat
 make clean
 make
 mpirun -np 2 ./mhit36 
