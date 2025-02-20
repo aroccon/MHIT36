@@ -12,8 +12,9 @@ Log of changes/status of the porting
 - 15/02/25: General structure of the code inializated and division in substeps, rhsp and p as input and output for Poisson.
 - 17/02/25: Cleaning and use of module.f90 and readinput.f90, more variable included in the modules. Temporal loop created. Soon merging with main repository?
 - 18/02/25: Fixed issue on makefile and forced linking (working also in Leonardo), flow field initialization looks of for different PR and PC; MPI output in parallel; tested different grid resolutions (up to 1024^3).
-- 19/02/25: Phase-field initialization and MPI I/O of phase variables seem fine. Implementation of the projection step (convective, diffusive and forcing); halo updates of ustar, vstar and wstar also implemented.
-
+- 19/02/25: Phase-field initialization and MPI I/O of phase variables seem fine. Implementation of the projection step (convective, diffusive and forcing); halo updates of ustar, vstar and wstar also implemented. Issue with 1536^3 and 2048^3 on 8 nodes (32 GPUs).
+poisson.f90 has the same issue (which is the one provided by Nvidia).
+- 20/02/25: Problem on large grid (1536^3 and 2048^3) has been fixed (Thank you Josh), there was an integer overflwo in the normalization.
 
 # Multi-GPU version status
 

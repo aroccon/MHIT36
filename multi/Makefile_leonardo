@@ -1,7 +1,7 @@
 # Compiler
 FC = mpif90
 LD = $(FC)
-
+ 
 # Paths (Modify if necessary)
 ROOT_DIR := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
 PARENT_DIR := $(abspath $(ROOT_DIR)/..)

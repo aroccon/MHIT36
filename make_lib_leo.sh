@@ -1,3 +1,4 @@
+cd cuDecomp
 mkdir build
 cd build
 module load nvhpc/24.3
