@@ -1,0 +1,3 @@
+[submodule "cuDecomp"]
+	path = cuDecomp
+	url = https://github.com/NVIDIA/cuDecomp.git
