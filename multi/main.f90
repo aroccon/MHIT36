@@ -24,7 +24,7 @@ integer :: status
 ! other variables (wavenumber, grid location)
 real(8), allocatable :: x(:), kx(:)
 integer :: i,j,k,il,jl,kl,ig,jg,kg,t
-integer :: im,ip,jm,jp,km,kp
+integer :: im,ip,jm,jp,km,kp,last
 integer, parameter :: Mx = 1, My = 0, Mz = 0
 real(8), device, allocatable :: kx_d(:)
 ! working arrays
@@ -252,7 +252,7 @@ if (restart .eq. 1) then !restart, ignore inflow and read the tstart field
    !call readfield_restart(tstart,3)
 endif
 
-! update halo cells along y and z directions
+! update halo cells along y and z directions (enough only if pr and pc are non-unitary)
 !$acc host_data use_device(u)
 CHECK_CUDECOMP_EXIT(cudecompUpdateHalosX(handle, grid_desc, u, work_halo_d, CUDECOMP_DOUBLE, piX%halo_extents, halo_periods, 2))
 CHECK_CUDECOMP_EXIT(cudecompUpdateHalosX(handle, grid_desc, u, work_halo_d, CUDECOMP_DOUBLE, piX%halo_extents, halo_periods, 3))
@@ -265,6 +265,24 @@ CHECK_CUDECOMP_EXIT(cudecompUpdateHalosX(handle, grid_desc, v, work_halo_d, CUDE
 CHECK_CUDECOMP_EXIT(cudecompUpdateHalosX(handle, grid_desc, w, work_halo_d, CUDECOMP_DOUBLE, piX%halo_extents, halo_periods, 2))
 CHECK_CUDECOMP_EXIT(cudecompUpdateHalosX(handle, grid_desc, w, work_halo_d, CUDECOMP_DOUBLE, piX%halo_extents, halo_periods, 3))
 !$acc end host_data 
+! Internal update if 
+if (pr.eq.1) then
+   !to be implemented
+endif
+if (pc.eq.1) then
+   ! manual update along z
+   last = piX%shape(3)
+   do j=1,piX%shape(2)
+      do i=1,nx
+         u(i,j,1)=    u(i,j,last-halo_ext)
+         u(i,j,last)= u(i,j,1+halo_ext)
+         v(i,j,1)=    v(i,j,last-halo_ext)
+         v(i,j,last)= v(i,j,1+halo_ext)
+         w(i,j,1)=    w(i,j,last-halo_ext)
+         w(i,j,last)= w(i,j,1+halo_ext)
+      enddo
+   enddo
+endif
 
 ! initialize phase-field
 #if phiflag == 1
@@ -358,7 +376,7 @@ do t=tstart,tfin
    ! Projection step, convective terms
    ! 5.1a Convective terms NS
    ! Loop on inner nodes
-   !$acc kernels
+   !!$acc parallel loop collapse(3) private(im,jm,km)
    do k=1+halo_ext, piX%shape(3)-halo_ext
       do j=1+halo_ext, piX%shape(2)-halo_ext
          do i=1,nx
@@ -398,7 +416,17 @@ do t=tstart,tfin
          enddo
       enddo
    enddo
-   !$acc end kernels
+   !!$acc end kernels
+
+   write(namefile,'(a,i3.3,a)') 'out_',rank,'.dat'
+   open(unit=55,file=namefile,form='unformatted',position='append',access='stream',status='new')
+   write(55) v
+   close(55)
+
+
+   write(*,*) "max rhsu", maxval(rhsu)
+   write(*,*) "max rhsv", maxval(rhsv)
+   write(*,*) "max rhsw", maxval(rhsw)
    ! to be removed - debug only
    !write(namefile,'(a,i3.3,a)') 'rhsu_',rank,'.dat'
    !open(unit=55,file=namefile,form='unformatted',position='append',access='stream',status='new')
@@ -406,7 +434,6 @@ do t=tstart,tfin
    !close(55)
 
    ! 5.1b Compute viscous terms
-   !$acc kernels
    do k=1+halo_ext, piX%shape(3)-halo_ext
       do j=1+halo_ext, piX%shape(2)-halo_ext
           do i=1,nx
@@ -433,26 +460,25 @@ do t=tstart,tfin
           enddo
       enddo
    enddo
-   !$acc end kernels
 
    ! 5.1c NS forcing
-   !$acc kernels
-   do k = 1+halo_ext, piX%shape(3)-halo_ext
-      kg = piX%lo(3) + k - 1 
-      do j = 1+halo_ext, piX%shape(2)-halo_ext
-         jg = piX%lo(2) + j - 1 
-         do i = 1, piX%shape(1)
-            ! ABC forcing
-            rhsu(i,j,k)= rhsu(i,j,k) + f3*sin(k0*x(kg))+f2*cos(k0*x(jg))
-            rhsv(i,j,k)= rhsv(i,j,k) + f1*sin(k0*x(i))+f3*cos(k0*x(kg))
-            rhsw(i,j,k)= rhsw(i,j,k) + f2*sin(k0*x(jg))+f1*cos(k0*x(i))
-            ! TG Forcing
-            !rhsu(i,j,k)= rhsu(i,j,k) + f1*sin(k0*x(i))*cos(k0*x(j))*cos(k0*x(k))
-            !rhsv(i,j,k)= rhsv(i,j,k) - f1*cos(k0*x(i))*sin(k0*x(j))*sin(k0*x(k))
-          enddo
-      enddo
-   enddo
-   !$acc end kernels
+   !!$acc kernels
+   !do k = 1+halo_ext, piX%shape(3)-halo_ext
+   !   kg = piX%lo(3) + k - 1 
+   !   do j = 1+halo_ext, piX%shape(2)-halo_ext
+   !      jg = piX%lo(2) + j - 1 
+   !      do i = 1, piX%shape(1)
+   !         ! ABC forcing
+   !         !rhsu(i,j,k)= rhsu(i,j,k) + f3*sin(k0*x(kg))+f2*cos(k0*x(jg))
+   !         !rhsv(i,j,k)= rhsv(i,j,k) + f1*sin(k0*x(i))+f3*cos(k0*x(kg))
+   !         !rhsw(i,j,k)= rhsw(i,j,k) + f2*sin(k0*x(jg))+f1*cos(k0*x(i))
+   !         ! TG Forcing
+   !         !rhsu(i,j,k)= rhsu(i,j,k) + f1*sin(k0*x(i))*cos(k0*x(j))*cos(k0*x(k))
+   !         !rhsv(i,j,k)= rhsv(i,j,k) - f1*cos(k0*x(i))*sin(k0*x(j))*sin(k0*x(k))
+   !       enddo
+   !   enddo
+   !enddo
+   !!$acc end kernels
 
    ! Surface tension forces
    #if phiflag == 1
@@ -471,6 +497,12 @@ do t=tstart,tfin
       enddo
    enddo
    !$acc end kernels
+
+   uc=maxval(ustar)
+   vc=maxval(vstar)
+   wc=maxval(wstar)
+   umax=max(wc,max(uc,vc))
+   write(*,*) "Star max ",rank,umax
 
    ! 5.3 update halos (y and z directions), required to then compute the RHS of Poisson equation because of staggered grid
    !$acc host_data use_device(ustar)
@@ -513,7 +545,7 @@ do t=tstart,tfin
               jp=j+1
               kp=k+1
               if (ip > nx) ip=1
-              rhsp(i,j,k) = (rho*dxi/dt)*(ustar(ip,j,k)-ustar(i,j,k))
+              rhsp(i,j,k) =               (rho*dxi/dt)*(ustar(ip,j,k)-ustar(i,j,k))
               rhsp(i,j,k) = rhsp(i,j,k) + (rho*dxi/dt)*(vstar(i,jp,k)-vstar(i,j,k))
               rhsp(i,j,k) = rhsp(i,j,k) + (rho*dxi/dt)*(wstar(i,j,kp)-wstar(i,j,k))
           enddo
@@ -528,10 +560,10 @@ do t=tstart,tfin
    call c_f_pointer(c_loc(psi), psi3, [piX%shape(1), piX%shape(2), piX%shape(3)])
 
    !rhsp is a standard array (similar to those that are in the code)
-   do kl = 1, piX%shape(3)
-      kg = piX%lo(3) + kl - 1 
-      do jl = 1, piX%shape(2)
-         jg = piX%lo(2) + jl - 1 
+   do kl = 1+halo_ext, piX%shape(3)-halo_ext
+      !kg = piX%lo(3) + kl - 1 
+      do jl = 1+halo_ext, piX%shape(2)-halo_ext
+         !jg = piX%lo(2) + jl - 1 
          do i = 1, piX%shape(1)
             rhsp_complex(i,jl,kl) = cmplx(rhsp(i,jl,kl),0.0) !<- use this once solver is ok
             ! For Poisson testing (knwon solutions)
@@ -543,13 +575,13 @@ do t=tstart,tfin
 
    !move these arrays into the device pointer to feed the Poisson solver
    do kl = 1, pix%shape(3)
-      kg = piX%lo(3) + kl - 1 
+      !kg = piX%lo(3) + kl - 1 
       do jl = 1, pix%shape(2)
-         jg = piX%lo(2) + jl - 1 
+         !jg = piX%lo(2) + jl - 1 
          do i = 1, pix%shape(1)
             psi3(i,jl,kl) = rhsp_complex(i,jl,kl)  ! RHS of Poisson equation is psi3 (pointer to psi and then copied into the GPU)
             !phi3(i,jl,kl) = 
-            ua(i,jl,kl) = -psi3(i,jl,kl)/(Mx**2 + My**2 + Mz**2) ! Solution of Poisson equation
+            !ua(i,jl,kl) = -psi3(i,jl,kl)/(Mx**2 + My**2 + Mz**2) ! Solution of Poisson equation
          enddo
       enddo
    enddo
@@ -607,7 +639,7 @@ do t=tstart,tfin
          ig = xoff + il
          do k = 1, nz
             k2 = kx_d(ig)**2 + kx_d(jg)**2 + kx_d(k)**2
-            psi3d(k,il,jl) = -psi3d(k,il,jl)/k2/(nx*ny*nz)
+            psi3d(k,il,jl) = -psi3d(k,il,jl)/k2/(int(nx,8)*int(ny,8)*int(nz,8))
          enddo
       enddo
    enddo
@@ -731,6 +763,16 @@ do t=tstart,tfin
    CHECK_CUDECOMP_EXIT(cudecompUpdateHalosX(handle, grid_desc, w, work_halo_d, CUDECOMP_DOUBLE, piX%halo_extents, halo_periods, 2))
    CHECK_CUDECOMP_EXIT(cudecompUpdateHalosX(handle, grid_desc, w, work_halo_d, CUDECOMP_DOUBLE, piX%halo_extents, halo_periods, 3))
    !$acc end host_data 
+
+
+   ! check on velocity field (also used to compute gamma at first iteration)
+   uc=maxval(u)
+   vc=maxval(v)
+   wc=maxval(w)
+   umax=max(wc,max(uc,vc))
+   cou=umax*dt*dxi
+   write(*,*) "Rank + Courant number: ",rank,cou
+   
    !########################################################################################################################################
    ! END STEP 8: VELOCITY CORRECTION  
    !########################################################################################################################################

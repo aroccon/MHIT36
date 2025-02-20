@@ -33,7 +33,7 @@ read(55,*) epsr
 ! compute pre-defined constant 
 twopi=8.0_8*atan(1.0_8)
 lx=twopi
-dx = lx/nx
+dx = lx/(nx-1)
 dxi=1.d0/dx
 ddxi=1.d0/dx/dx
 rhoi=1.d0/rho
@@ -56,15 +56,15 @@ if (rank .eq. 0) then
     write(*,*) "Deltat  ", dt
     write(*,*) "Mu      ", mu
     write(*,*) "Rho     ", rho
-    !write(*,*) "f1,f2,f3,k0", f1,f2,f3,k0
-    !write(*,*) "Radius  ", radius
-    !write(*,*) "Sigma   ", sigma
-    !write(*,*) "Eps     ", eps
-    !write(*,*) "Lx      ", lx
-    !write(*,*) "dx", dx
-    !write(*,*) "dxi", dxi
-    !write(*,*) "ddxi", ddxi
-    !write(*,*) "rhoi", rhoi
+    write(*,*) "f1,f2,f3,k0", f1,f2,f3,k0
+    write(*,*) "Radius  ", radius
+    write(*,*) "Sigma   ", sigma
+    write(*,*) "Eps     ", eps
+    write(*,*) "Lx      ", lx
+    write(*,*) "dx", dx
+    write(*,*) "dxi", dxi
+    write(*,*) "ddxi", ddxi
+    write(*,*) "rhoi", rhoi
 endif
 
 end subroutine

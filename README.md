@@ -15,6 +15,7 @@ Log of changes/status of the porting
 - 19/02/25: Phase-field initialization and MPI I/O of phase variables seem fine. Implementation of the projection step (convective, diffusive and forcing); halo updates of ustar, vstar and wstar also implemented. Issue with 1536^3 and 2048^3 on 8 nodes (32 GPUs).
 poisson.f90 has the same issue (which is the one provided by Nvidia).
 - 20/02/25: Problem on large grid (1536^3 and 2048^3) has been fixed (Thank you Josh), there was an integer overflow in the normalization; projection step implemented; first run on Local machine of the full NS solver. Still something off in the solver; blows up after a few iterations.
+Strange behaviof of the convective terms, introduced internal update if pr=1 or pc=1. Now using dx=lx/(nx-1) the convective terms are fine.
 
 # Multi-GPU version status
 
