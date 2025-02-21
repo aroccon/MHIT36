@@ -16,6 +16,7 @@ Log of changes/status of the porting
 poisson.f90 has the same issue (which is the one provided by Nvidia).
 - 20/02/25: Problem on large grid (1536^3 and 2048^3) has been fixed (Thank you Josh), there was an integer overflow in the normalization; projection step implemented; first run on Local machine of the full NS solver. Still something off in the solver; blows up after a few iterations.
 Strange behaviof of the convective terms, introduced internal update if pr=1 or pc=1. Now using dx=lx/(nx-1) the convective terms are fine.
+- 21/02/25: Problem in the pressure correction; code seems to be runnig fine, does not blow up. 
 
 # Multi-GPU version status
 
@@ -46,4 +47,4 @@ Strange behaviof of the convective terms, introduced internal update if pr=1 or 
 - Double check cuDecomp building is fine (must be compiled using HPC-SDK)
 - Single folder: contains the single GPU version of the code (see MHIT36 repository for further details), no MPI required.
 - Multi folder: multi GPU version of the code (work in progress). Use local.sh or leo.sh to compile and run the code (see porting status above); the multi GPU version relies on cuDecomp for Pencil Transposition and halo exchanges.
-- Autotuning of the multi-GPY version: leave pr=0 and pc=0, cuDecomp will perform an autotuning at the start finding the best decomposition (the only input is the total number of tasks). Everything should be automatic in the code (as it is obtained from cuDecomp variable)
+- Autotuning of the multi-GPU version: leave pr=0 and pc=0, cuDecomp will perform an autotuning at the start finding the best decomposition (the only input is the total number of tasks). Everything should be automatic in the code (as it is obtained from cuDecomp variable)
