@@ -265,24 +265,7 @@ CHECK_CUDECOMP_EXIT(cudecompUpdateHalosX(handle, grid_desc, v, work_halo_d, CUDE
 CHECK_CUDECOMP_EXIT(cudecompUpdateHalosX(handle, grid_desc, w, work_halo_d, CUDECOMP_DOUBLE, piX%halo_extents, halo_periods, 2))
 CHECK_CUDECOMP_EXIT(cudecompUpdateHalosX(handle, grid_desc, w, work_halo_d, CUDECOMP_DOUBLE, piX%halo_extents, halo_periods, 3))
 !$acc end host_data 
-! Internal update if 
-if (pr.eq.1) then
-   !to be implemented
-endif
-if (pc.eq.1) then
-   ! manual update along z
-   last = piX%shape(3)
-   do j=1,piX%shape(2)
-      do i=1,nx
-         u(i,j,1)=    u(i,j,last-halo_ext)
-         u(i,j,last)= u(i,j,1+halo_ext)
-         v(i,j,1)=    v(i,j,last-halo_ext)
-         v(i,j,last)= v(i,j,1+halo_ext)
-         w(i,j,1)=    w(i,j,last-halo_ext)
-         w(i,j,last)= w(i,j,1+halo_ext)
-      enddo
-   enddo
-endif
+
 
 ! initialize phase-field
 #if phiflag == 1
@@ -376,7 +359,7 @@ do t=tstart,tfin
    ! Projection step, convective terms
    ! 5.1a Convective terms NS
    ! Loop on inner nodes
-   !!$acc parallel loop collapse(3) private(im,jm,km)
+   !$acc parallel loop collapse(3) private(im,jm,km)
    do k=1+halo_ext, piX%shape(3)-halo_ext
       do j=1+halo_ext, piX%shape(2)-halo_ext
          do i=1,nx
@@ -416,7 +399,6 @@ do t=tstart,tfin
          enddo
       enddo
    enddo
-   !!$acc end kernels
 
    !write(namefile,'(a,i3.3,a)') 'out_',rank,'.dat'
    !open(unit=55,file=namefile,form='unformatted',position='append',access='stream',status='new')
@@ -434,6 +416,7 @@ do t=tstart,tfin
    !close(55)
 
    ! 5.1b Compute viscous terms
+   !$acc parallel loop collapse(3) private(im,jm,km)
    do k=1+halo_ext, piX%shape(3)-halo_ext
       do j=1+halo_ext, piX%shape(2)-halo_ext
           do i=1,nx
@@ -462,7 +445,7 @@ do t=tstart,tfin
    enddo
 
    ! 5.1c NS forcing
-   !!$acc kernels
+   !$acc kernels
    do k = 1+halo_ext, piX%shape(3)-halo_ext
       kg = piX%lo(3) + k - 1 
       do j = 1+halo_ext, piX%shape(2)-halo_ext
@@ -478,7 +461,7 @@ do t=tstart,tfin
           enddo
       enddo
    enddo
-   !!$acc end kernels
+   !$acc end kernels
 
    ! Surface tension forces
    #if phiflag == 1
@@ -518,23 +501,23 @@ do t=tstart,tfin
    CHECK_CUDECOMP_EXIT(cudecompUpdateHalosX(handle, grid_desc, wstar, work_halo_d, CUDECOMP_DOUBLE, piX%halo_extents, halo_periods, 3))
    !$acc end host_data 
    ! Internal update if 
-   if (pr.eq.1) then
-      !to be implemented
-   endif
-   if (pc.eq.1) then
-      ! manual update along z
-      last = piX%shape(3)
-      do j=1,piX%shape(2)
-         do i=1,nx
-            ustar(i,j,1)=    ustar(i,j,last-halo_ext)
-            ustar(i,j,last)= ustar(i,j,1+halo_ext)
-            vstar(i,j,1)=    vstar(i,j,last-halo_ext)
-            vstar(i,j,last)= vstar(i,j,1+halo_ext)
-            wstar(i,j,1)=    wstar(i,j,last-halo_ext)
-            wstar(i,j,last)= wstar(i,j,1+halo_ext)
-         enddo
-      enddo
-   endif
+   !if (pr.eq.1) then
+   !   !to be implemented
+   !endif
+   !if (pc.eq.1) then
+   !   ! manual update along z
+   !   last = piX%shape(3)
+   !   do j=1,piX%shape(2)
+   !      do i=1,nx
+   !         ustar(i,j,1)=    ustar(i,j,last-halo_ext)
+   !         ustar(i,j,last)= ustar(i,j,1+halo_ext)
+   !         vstar(i,j,1)=    vstar(i,j,last-halo_ext)
+    !        vstar(i,j,last)= vstar(i,j,1+halo_ext)
+    !        wstar(i,j,1)=    wstar(i,j,last-halo_ext)
+    !        wstar(i,j,last)= wstar(i,j,1+halo_ext)
+    !     enddo
+    !  enddo
+   !endif
 
    !########################################################################################################################################
    ! END STEP 5: USTAR COMPUTATION 
@@ -578,6 +561,7 @@ do t=tstart,tfin
    call c_f_pointer(c_loc(psi), psi3, [piX%shape(1), piX%shape(2), piX%shape(3)])
 
    !rhsp is a standard array (similar to those that are in the code)
+   !$acc kernels
    do kl = 1+halo_ext, piX%shape(3)-halo_ext
       !kg = piX%lo(3) + kl - 1 
       do jl = 1+halo_ext, piX%shape(2)-halo_ext
@@ -590,8 +574,10 @@ do t=tstart,tfin
          enddo
       enddo
    enddo
+   !$acc end kernels
 
    !move these arrays into the device pointer to feed the Poisson solver
+   !$acc kernels
    do kl = 1, pix%shape(3)
       !kg = piX%lo(3) + kl - 1 
       do jl = 1, pix%shape(2)
@@ -603,6 +589,7 @@ do t=tstart,tfin
          enddo
       enddo
    enddo
+   !$acc end kernels
    end block
 
    ! H2D transfer using CUDA
@@ -754,7 +741,7 @@ do t=tstart,tfin
    ! 8.1 correct velocity 
    ! 8.2 Call halo exchnages along Y and Z for u,v,w
    ! Correct velocity, pressure has also the halo
-   !!$acc kernels 
+   !$acc kernels 
    do k = 1+halo_ext, piX%shape(3)-halo_ext
       do j = 1+halo_ext, piX%shape(2)-halo_ext
          do i = 1, piX%shape(1) ! equal to nx (no halo on x)
@@ -768,7 +755,7 @@ do t=tstart,tfin
           enddo
       enddo
    enddo
-   !!$acc end kernels 
+   !$acc end kernels 
 
    ! 8.3 update halos (y and z directions), required to then compute the RHS of Poisson equation because of staggered grid
    !$acc host_data use_device(u)
@@ -784,23 +771,23 @@ do t=tstart,tfin
    CHECK_CUDECOMP_EXIT(cudecompUpdateHalosX(handle, grid_desc, w, work_halo_d, CUDECOMP_DOUBLE, piX%halo_extents, halo_periods, 3))
    !$acc end host_data 
    ! Internal update if 
-   if (pr.eq.1) then
-      !to be implemented
-   endif
-   if (pc.eq.1) then
-      ! manual update along z
-      last = piX%shape(3)
-      do j=1,piX%shape(2)
-         do i=1,nx
-            u(i,j,1)=    u(i,j,last-halo_ext)
-            u(i,j,last)= u(i,j,1+halo_ext)
-            v(i,j,1)=    v(i,j,last-halo_ext)
-            v(i,j,last)= v(i,j,1+halo_ext)
-            w(i,j,1)=    w(i,j,last-halo_ext)
-            w(i,j,last)= w(i,j,1+halo_ext)
-         enddo
-      enddo
-   endif
+   !if (pr.eq.1) then
+   !   !to be implemented
+   !endif
+   !if (pc.eq.1) then
+   !   ! manual update along z
+   !   last = piX%shape(3)
+   !   do j=1,piX%shape(2)
+   !      do i=1,nx
+   !         u(i,j,1)=    u(i,j,last-halo_ext)
+   !         u(i,j,last)= u(i,j,1+halo_ext)
+   !         v(i,j,1)=    v(i,j,last-halo_ext)
+   !         v(i,j,last)= v(i,j,1+halo_ext)
+   !         w(i,j,1)=    w(i,j,last-halo_ext)
+   !         w(i,j,last)= w(i,j,1+halo_ext)
+   !      enddo
+   !   enddo
+   !endif
 
 
    ! check on velocity field (also used to compute gamma at first iteration)
