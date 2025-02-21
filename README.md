@@ -39,6 +39,11 @@ Strange behaviof of the convective terms, introduced internal update if pr=1 or 
 - MPI writing (no halo)  ✅
 - Serial reading (to avoid issue with Leonardo) ❌
 - Courant number check (MPI reduction) ❌
+- MPI I/O with different configurations (color by rank), exstensive check fo this part. ❌
+- Halo update in subroutines (wait for validation of the single GPU version and case pc=1) ❌
+- Move from Euler to AB2 as in MHIT36 (wait to see if spectra results look ok) ❌
+- Acceleration of some parts (not done at the moment to debug the solver) ❌
+- Check divergence of the fields ❌
 
 
 # Run the code
