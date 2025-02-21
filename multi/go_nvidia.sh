@@ -16,4 +16,4 @@ export LD_LIBRARY_PATH=/leonardo_scratch/large/userexternal/aroccon0/MHIT36_cuDe
 
 
 
-mpirun -n 2 ./poisson
+mpirun -n 2 ./mhit36
