@@ -37,6 +37,7 @@ Strange behaviof of the convective terms, introduced internal update if pr=1 or 
 - Drop oscillation validation ❌
 - Full code scaling ❌
 - MPI writing (no halo)  ✅
+- MPI reading (no halo) (to be tested)
 - Serial reading (to avoid issue with Leonardo) ❌
 - Courant number check (MPI reduction) ❌
 - MPI I/O with different configurations (color by rank), exstensive check fo this part. ❌
