@@ -16,7 +16,7 @@ character(len=40) :: namefile
 integer(mpi_offset_kind) :: offset=0
 integer :: f_handle ! file handle
 integer :: ftype
-double precision, allocatable :: in(:,:,:)
+double precision, allocatable :: out(:,:,:)
 
 ! fieldn=1 means u
 ! fieldn=2 means v
@@ -122,7 +122,7 @@ character(len=40) :: namefile
 integer(mpi_offset_kind) :: offset=0
 integer :: f_handle ! file handle
 integer :: ftype
-double precision, allocatable :: out(:,:,:)
+double precision, allocatable :: in(:,:,:)
 
 ! fieldn=1 means u
 ! fieldn=2 means v

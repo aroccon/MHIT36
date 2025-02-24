@@ -17,6 +17,8 @@ poisson.f90 has the same issue (which is the one provided by Nvidia).
 - 20/02/25: Problem on large grid (1536^3 and 2048^3) has been fixed (Thank you Josh), there was an integer overflow in the normalization; projection step implemented; first run on Local machine of the full NS solver. Still something off in the solver; blows up after a few iterations.
 Strange behaviof of the convective terms, introduced internal update if pr=1 or pc=1. Now using dx=lx/(nx-1) the convective terms are fine.
 - 21/02/25: Problem in the pressure correction; code seems to be runnig fine, does not blow up; first run on milton done (looks good); start running on Leonardo for re_lambda=95. Special case update for halo already accounted by cuDecomp (pc=1 and pr=1); these parts have been removed.
+- 22/02/25: Add read input in parallel (to be tested)
+- 24/02/25: 
 
 # Multi-GPU version status
 
