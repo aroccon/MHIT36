@@ -186,6 +186,7 @@ allocate(p(piX%shape(1), piX%shape(2), piX%shape(3)))
 allocate(u(piX%shape(1),piX%shape(2),piX%shape(3)),v(piX%shape(1),piX%shape(2),piX%shape(3)),w(piX%shape(1),piX%shape(2),piX%shape(3))) !velocity vector
 allocate(ustar(piX%shape(1),piX%shape(2),piX%shape(3)),vstar(piX%shape(1),piX%shape(2),piX%shape(3)),wstar(piX%shape(1),piX%shape(2),piX%shape(3))) ! provisional velocity field
 allocate(rhsu(piX%shape(1),piX%shape(2),piX%shape(3)),rhsv(piX%shape(1),piX%shape(2),piX%shape(3)),rhsw(piX%shape(1),piX%shape(2),piX%shape(3))) ! right hand side u,v,w
+allocate(div(piX%shape(1),piX%shape(2),piX%shape(3)))
 !PFM variables
 #if phiflag == 1
 allocate(phi(piX%shape(1), piX%shape(2), piX%shape(3)),rhsphi(piX%shape(1), piX%shape(2), piX%shape(3)))
@@ -500,25 +501,6 @@ do t=tstart,tfin
    CHECK_CUDECOMP_EXIT(cudecompUpdateHalosX(handle, grid_desc, wstar, work_halo_d, CUDECOMP_DOUBLE, piX%halo_extents, halo_periods, 2))
    CHECK_CUDECOMP_EXIT(cudecompUpdateHalosX(handle, grid_desc, wstar, work_halo_d, CUDECOMP_DOUBLE, piX%halo_extents, halo_periods, 3))
    !$acc end host_data 
-   ! Internal update if 
-   !if (pr.eq.1) then
-   !   !to be implemented
-   !endif
-   !if (pc.eq.1) then
-   !   ! manual update along z
-   !   last = piX%shape(3)
-   !   do j=1,piX%shape(2)
-   !      do i=1,nx
-   !         ustar(i,j,1)=    ustar(i,j,last-halo_ext)
-   !         ustar(i,j,last)= ustar(i,j,1+halo_ext)
-   !         vstar(i,j,1)=    vstar(i,j,last-halo_ext)
-    !        vstar(i,j,last)= vstar(i,j,1+halo_ext)
-    !        wstar(i,j,1)=    wstar(i,j,last-halo_ext)
-    !        wstar(i,j,last)= wstar(i,j,1+halo_ext)
-    !     enddo
-    !  enddo
-   !endif
-
    !########################################################################################################################################
    ! END STEP 5: USTAR COMPUTATION 
    !########################################################################################################################################
@@ -556,9 +538,9 @@ do t=tstart,tfin
 
    ! Feed rhsp into the Poisson solver, this part can be optimized in the future (less copies of arrays)
 
-   block
-   complex(8), pointer :: psi3(:,:,:)
-   call c_f_pointer(c_loc(psi), psi3, [piX%shape(1), piX%shape(2), piX%shape(3)])
+   !block
+   !complex(8), pointer :: psi3(:,:,:)
+   !call c_f_pointer(c_loc(psi), psi3, [piX%shape(1), piX%shape(2), piX%shape(3)])
 
    !rhsp is a standard array (similar to those that are in the code)
    !$acc kernels
@@ -576,24 +558,24 @@ do t=tstart,tfin
    enddo
    !$acc end kernels
 
-   !move these arrays into the device pointer to feed the Poisson solver
-   !$acc kernels
-   do kl = 1, pix%shape(3)
+   !!move these arrays into the device pointer to feed the Poisson solver
+   !!$acc kernels
+   !do kl = 1, pix%shape(3)
       !kg = piX%lo(3) + kl - 1 
-      do jl = 1, pix%shape(2)
+   !   do jl = 1, pix%shape(2)
          !jg = piX%lo(2) + jl - 1 
-         do i = 1, pix%shape(1)
-            psi3(i,jl,kl) = rhsp_complex(i,jl,kl)  ! RHS of Poisson equation is psi3 (pointer to psi and then copied into the GPU)
-            !phi3(i,jl,kl) = 
-            !ua(i,jl,kl) = -psi3(i,jl,kl)/(Mx**2 + My**2 + Mz**2) ! Solution of Poisson equation
-         enddo
-      enddo
-   enddo
-   !$acc end kernels
-   end block
+   !      do i = 1, pix%shape(1)
+   !         psi3(i,jl,kl) = rhsp_complex(i,jl,kl)  ! RHS of Poisson equation is psi3 (pointer to psi and then copied into the GPU)
+   !         !phi3(i,jl,kl) = 
+   !         !ua(i,jl,kl) = -psi3(i,jl,kl)/(Mx**2 + My**2 + Mz**2) ! Solution of Poisson equation
+   !      enddo
+   !   enddo
+   !enddo
+   !!$acc end kernels
+   !end block
 
    ! H2D transfer using CUDA
-   psi_d = psi
+   !psi_d = psi
 
    ! input rhs 
    ! write(namefile,'(a,i3.3,a)') 'rhs_',rank,'.dat'
@@ -603,8 +585,10 @@ do t=tstart,tfin
 
    ! do the FFT3D forward 
    ! psi(x,y,z) -> psi(kx,y,z)
-   status = cufftExecZ2Z(planX, psi_d, psi_d, CUFFT_FORWARD)
+   !$acc host_data use_device(rhsp_complex)
+   status = cufftExecZ2Z(planX, rhsp_complex, psi_d, CUFFT_FORWARD)
    if (status /= CUFFT_SUCCESS) write(*,*) 'X forward error: ', status
+   !$acc end host_data
    ! psi(kx,y,z) -> psi(y,z,kx)
    CHECK_CUDECOMP_EXIT(cudecompTransposeXToY(handle, grid_desc, psi_d, psi_d, work_d, CUDECOMP_DOUBLE_COMPLEX,Pix%halo_extents, [0,0,0]))
    ! psi(y,z,kx) -> psi(ky,z,kx)
@@ -770,24 +754,6 @@ do t=tstart,tfin
    CHECK_CUDECOMP_EXIT(cudecompUpdateHalosX(handle, grid_desc, w, work_halo_d, CUDECOMP_DOUBLE, piX%halo_extents, halo_periods, 2))
    CHECK_CUDECOMP_EXIT(cudecompUpdateHalosX(handle, grid_desc, w, work_halo_d, CUDECOMP_DOUBLE, piX%halo_extents, halo_periods, 3))
    !$acc end host_data 
-   ! Internal update if 
-   !if (pr.eq.1) then
-   !   !to be implemented
-   !endif
-   !if (pc.eq.1) then
-   !   ! manual update along z
-   !   last = piX%shape(3)
-   !   do j=1,piX%shape(2)
-   !      do i=1,nx
-   !         u(i,j,1)=    u(i,j,last-halo_ext)
-   !         u(i,j,last)= u(i,j,1+halo_ext)
-   !         v(i,j,1)=    v(i,j,last-halo_ext)
-   !         v(i,j,last)= v(i,j,1+halo_ext)
-   !         w(i,j,1)=    w(i,j,last-halo_ext)
-   !         w(i,j,last)= w(i,j,1+halo_ext)
-   !      enddo
-   !   enddo
-   !endif
 
 
    ! check on velocity field (also used to compute gamma at first iteration)
@@ -797,6 +763,23 @@ do t=tstart,tfin
    umax=max(wc,max(uc,vc))
    cou=umax*dt*dxi
    write(*,*) "Rank + Courant number: ",rank,cou
+
+   ! Check divergence (can be skipped in production)
+   !!$acc kernels 
+   !do k=1+halo_ext, piX%shape(3)-halo_ext
+   !   do j=1+halo_ext, piX%shape(2)-halo_ext
+   !       do i=1,nx
+   !         ip=i+1
+   !         jp=j+1
+   !         kp=k+1
+   !         if (ip .gt. nx) ip=1
+   !         div(i,j,k) = dxi*(u(ip,j,k)-u(i,j,k) + v(i,jp,k)-v(i,j,k) + w(i,j,kp)-w(i,j,k))
+   !      enddo
+   !   enddo
+   ! enddo
+   ! !$acc end kernels
+   ! cou=maxval(div)
+   ! write(*,*) "Rank + Div. max: ",rank,cou
    
    !########################################################################################################################################
    ! END STEP 8: VELOCITY CORRECTION  
