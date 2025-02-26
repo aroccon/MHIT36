@@ -28,7 +28,7 @@ Strange behaviof of the convective terms, introduced internal update if pr=1 or 
 - 22/02/25: Add read input in parallel (to be tested)
 - 24/02/25: Some issue with 25.1; revert back to 24.3 (works fine on both Leonardo and Local)
 - 25/02/25: Improvement of Poisson solver (removed one block when copy in the rhsp); performance looks promising. Stop working on the code; perform full validation and scaling of this version; consider moving from EE to AB2; Leo in manteinance, wait tomorrow for some tests.
-- 26/02/25: Everyhting looks good; testing using the WMR benchmark. cuDecomp and single GPU version match very well; AB2 vs Euler minor differences. Added post-processing folder to compute dissipation.
+- 26/02/25: Everyhting looks good; testing using the WMR benchmark. cuDecomp and single GPU version match very well; AB2 vs Euler minor differences. Added post-processing folder to compute dissipation. TG test seems very good, agreement with CaNS and other results.
 
 # Multi-GPU version status
 
@@ -51,7 +51,7 @@ Strange behaviof of the convective terms, introduced internal update if pr=1 or 
 - MPI writing (no halo)  ✅
 - MPI reading (no halo) (to be tested)
 - Serial reading (to avoid issue with Leonardo) ❌
-- Courant number check (MPI reduction) ❌
+- Courant number check (MPI reduction) ❌ !only from rank 0? enough?
 - MPI I/O with different configurations (color by rank), exstensive check fo this part. ❌
 - Move from Euler to AB2 as in MHIT36 (wait to see if spectra results look ok) ❌
 - Acceleration of some parts (not done at the moment to debug the solver) ✅
@@ -71,10 +71,22 @@ Strange behaviof of the convective terms, introduced internal update if pr=1 or 
 Performance (NS only)
 * 128 x 128 x 128 | 2 x RTX5000@milton |   14 ms/timestep
 * 256 x 256 x 256 | 2 x RTX5000@milton |  129 ms/timestep
-* 128 x 128 x 128 | 4 x A100@Leonardo  |      ms/timestep
-* 256 x 256 x 256 | 4 x A100@Leonardo  |      ms/timestep
-* 512 x 512 x 512 | 4 x A100@Leonardo  |      ms/timestep
+* 128 x 128 x 128 | 4 x A100@Leonardo  |    7 ms/timestep
+* 256 x 256 x 256 | 4 x A100@Leonardo  |   44 ms/timestep
+* 512 x 512 x 512 | 4 x A100@Leonardo  |  470 ms/timestep
+* 512 x 512 x 512 | 8 x A100@Leonardo  |  200 ms/timestep
+
 
 Max resolution tested (Poisson only):
-* 512 x 512 x 512 | 2 x RTX5000@milton - 16 GB VRAM
+*  768 x  768 x  768 | 2 x RTX5000@milton - 16 GB VRAM
 * 2048 x 2048 x 2048 | 32 x A100@Leonardo - 64 GB VRAm
+
+
+# Validation
+
+Benchamrk present in "W.M.VanRees,A.Leonard,D.Pullin,P.Koumoutsakos,Acomparisonofvortexandpseudo-spectralmethodsforthesimulationofperiodicvortical
+flowsathighReynoldsnumbers,J.Comput.Phys.230(8)(2011)2794–2805" and also Used in CaNS.
+
+Time evolution of the viscous dissipation:
+
+![Test](val/val.png)
