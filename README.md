@@ -28,7 +28,7 @@ Strange behaviof of the convective terms, introduced internal update if pr=1 or 
 - 22/02/25: Add read input in parallel (to be tested)
 - 24/02/25: Some issue with 25.1; revert back to 24.3 (works fine on both Leonardo and Local)
 - 25/02/25: Improvement of Poisson solver (removed one block when copy in the rhsp); performance looks promising. Stop working on the code; perform full validation and scaling of this version; consider moving from EE to AB2; Leo in manteinance, wait tomorrow for some tests.
-- 26/02/25: Everyhting looks good; testing using the WMR benchmark. cuDecomp and single GPU version match very well; AB2 vs Euler minor differences. Added post-processing folder to compute dissipation. TG test seems very good, agreement with CaNS and other results.
+- 26/02/25: Everyhting looks good; testing using the WMR benchmark. cuDecomp and single GPU version match very well; AB2 vs Euler minor differences. Added post-processing folder to compute dissipation. TG test seems very good, agreement with CaNS and other results. Time integration modified to AB2, test looks good.
 
 # Multi-GPU version status
 

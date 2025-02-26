@@ -186,6 +186,7 @@ allocate(p(piX%shape(1), piX%shape(2), piX%shape(3)))
 allocate(u(piX%shape(1),piX%shape(2),piX%shape(3)),v(piX%shape(1),piX%shape(2),piX%shape(3)),w(piX%shape(1),piX%shape(2),piX%shape(3))) !velocity vector
 allocate(ustar(piX%shape(1),piX%shape(2),piX%shape(3)),vstar(piX%shape(1),piX%shape(2),piX%shape(3)),wstar(piX%shape(1),piX%shape(2),piX%shape(3))) ! provisional velocity field
 allocate(rhsu(piX%shape(1),piX%shape(2),piX%shape(3)),rhsv(piX%shape(1),piX%shape(2),piX%shape(3)),rhsw(piX%shape(1),piX%shape(2),piX%shape(3))) ! right hand side u,v,w
+allocate(rhsu_o(piX%shape(1),piX%shape(2),piX%shape(3)),rhsv_o(piX%shape(1),piX%shape(2),piX%shape(3)),rhsw_o(piX%shape(1),piX%shape(2),piX%shape(3))) ! right hand side u,v,w
 allocate(div(piX%shape(1),piX%shape(2),piX%shape(3)))
 !PFM variables
 #if phiflag == 1
@@ -325,6 +326,9 @@ endif
 ! ########################################################################################################################################
 ! START TEMPORAL LOOP: STEP 4 to 8 REPEATED AT EVERY TIME STEP
 ! ########################################################################################################################################
+! First step use Euler
+alpha=1.0d0
+beta=0.0d0
 tstart=tstart+1
 ! Start temporal loop
 do t=tstart,tfin
@@ -354,7 +358,7 @@ do t=tstart,tfin
    ! START STEP 5: USTAR COMPUTATION (PROJECTION STEP)
    !########################################################################################################################################
    ! 5.1 compute rhs 
-   ! 5.2 obtain ustar
+   ! 5.2 obtain ustar and store old rhs in rhs_o
    ! 5.3 Call halo exchnages along Y and Z for u,v,w
 
    ! Projection step, convective terms
@@ -474,12 +478,22 @@ do t=tstart,tfin
    do k=1+halo_ext, piX%shape(3)-halo_ext
       do j=1+halo_ext, piX%shape(2)-halo_ext
           do i=1,nx
-              ustar(i,j,k) = u(i,j,k) + dt*rhsu(i,j,k)
-              vstar(i,j,k) = v(i,j,k) + dt*rhsv(i,j,k)
-              wstar(i,j,k) = w(i,j,k) + dt*rhsw(i,j,k)
+              ustar(i,j,k) = u(i,j,k) + dt*(alpha*rhsu(i,j,k)-beta*rhsu_o(i,j,k))
+              vstar(i,j,k) = v(i,j,k) + dt*(alpha*rhsv(i,j,k)-beta*rhsv_o(i,j,k))
+              wstar(i,j,k) = w(i,j,k) + dt*(alpha*rhsw(i,j,k)-beta*rhsw_o(i,j,k))
           enddo
       enddo
    enddo
+   !$acc end kernels
+
+   ! store rhs* in rhs*_o 
+   ! After first step move to AB2 
+   !$acc kernels
+   alpha=1.5d0
+   beta= 0.5d0
+   rhsu_o=rhsu
+   rhsv_o=rhsv
+   rhsw_o=rhsw
    !$acc end kernels
 
    uc=maxval(ustar)
@@ -814,6 +828,11 @@ do t=tstart,tfin
 
 
 enddo
+
+! Remove allocated variables (add new)
+deallocate(u,v,w)
+deallocate(rhsu,rhsv,rhsw)
+deallocate(rhsu_o,rhsv_o,rhsw_o)
 
 call mpi_finalize(ierr)
 

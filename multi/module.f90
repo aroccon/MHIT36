@@ -39,10 +39,11 @@ module velocity
    double precision, allocatable :: u(:,:,:), v(:,:,:), w(:,:,:)
    double precision, allocatable :: ustar(:,:,:), vstar(:,:,:), wstar(:,:,:)
    double precision, allocatable :: rhsu(:,:,:), rhsv(:,:,:), rhsw(:,:,:)
+   double precision, allocatable :: rhsu_o(:,:,:), rhsv_o(:,:,:), rhsw_o(:,:,:)
    complex(8), allocatable :: rhsp_complex(:,:,:)
    real(8), allocatable :: rhsp(:,:,:), p(:,:,:)
    real(8), allocatable :: div(:,:,:)
-   real(8) :: uc,vc,wc,umax,cou
+   real(8) :: uc,vc,wc,umax,cou,alpha,beta
    real(8) :: h11,h12,h13,h21,h22,h23,h31,h32,h33
 end module velocity
 
