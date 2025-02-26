@@ -661,9 +661,6 @@ do t=tstart,tfin
    !D2H transfer
    psi = psi_d
 
-   call cpu_time(timef)
-   if (rank.eq.0)  print '(" Time elapsed = ",f6.1," ms")',1000*(timef-times)
-
 
    ! check against analytical solution
    block
@@ -763,6 +760,9 @@ do t=tstart,tfin
    umax=max(wc,max(uc,vc))
    cou=umax*dt*dxi
    write(*,*) "Rank + Courant number: ",rank,cou
+
+   call cpu_time(timef)
+   if (rank.eq.0)  print '(" Time elapsed = ",f6.1," ms")',1000*(timef-times)
 
    ! Check divergence (can be skipped in production)
    !!$acc kernels 
