@@ -19,6 +19,7 @@ cudec256ab=importdata('cudec_256_ab.txt');
 cudec512ab=importdata('cudec_512_ab.txt');
 single128ab=importdata('single_128_ab.txt');
 single256ab=importdata('single_256_ab.txt');
+single512ab=importdata('single_512_ab.txt');
 
 
 figure(1)
@@ -34,6 +35,7 @@ plot(cudec256ab(:,1),cudec256ab(:,2),'sm','LineWidth',7.0,'DisplayName','MHIT36 
 plot(cudec512ab(:,1),cudec512ab(:,2),'*m','LineWidth',7.0,'DisplayName','MHIT36 + cuDecomp + AB + 512^3')
 plot(single128ab(:,1),single128ab(:,2),'^r','LineWidth',3.0,'DisplayName','MHIT36 + single + AB + 128^3')
 plot(single256ab(:,1),single256ab(:,2),'sr','LineWidth',7.0,'DisplayName','MHIT36 + single + AB + 256^3')
+plot(single512ab(:,1),single512ab(:,2),'*r','LineWidth',7.0,'DisplayName','MHIT36 + single + AB + 512^3')
 set(gca,'Fontsize',20)
 ylabel('Dissipation')
 xlabel('Time')
