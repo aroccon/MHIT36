@@ -29,6 +29,7 @@ Strange behaviof of the convective terms, introduced internal update if pr=1 or 
 - 24/02/25: Some issue with 25.1; revert back to 24.3 (works fine on both Leonardo and Local)
 - 25/02/25: Improvement of Poisson solver (removed one block when copy in the rhsp); performance looks promising. Stop working on the code; perform full validation and scaling of this version; consider moving from EE to AB2; Leo in manteinance, wait tomorrow for some tests.
 - 26/02/25: Everyhting looks good; testing using the WMR benchmark. cuDecomp and single GPU version match very well; AB2 vs Euler minor differences. Added post-processing folder to compute dissipation. TG test seems very good, agreement with CaNS and other results. Time integration modified to AB2, test looks good.
+- 27/02/25: Strong scaling tests on Leonardo, nice scaling even for very small grids and using gpu managed memory.
 
 # Multi-GPU version status
 
@@ -80,6 +81,14 @@ Performance (NS only)
 Max resolution tested (Poisson only):
 *  768 x  768 x  768 | 2 x RTX5000@milton - 16 GB VRAM
 * 2048 x 2048 x 2048 | 32 x A100@Leonardo - 64 GB VRAm
+
+
+# Scaling
+
+Strong scaling on Leonardo (4 x A100 64 GB x node)
+Tested from 1 node up to 32 nodes (ATM)
+
+![Scal](val/scaling.png)
 
 
 # Validation
