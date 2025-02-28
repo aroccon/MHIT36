@@ -29,7 +29,7 @@ hold on
 plot(cans(:,1),cans(:,2),'-b','LineWidth',3.0,'DisplayName','CaNS (2018) + FD2 + 512^3')
 plot(cudec128e(:,1),cudec128e(:,2),'^g','LineWidth',3.0,'DisplayName','MHIT36 + cuDecomp + Euler + 128^3')
 plot(cudec256e(:,1),cudec256e(:,2),'sg','LineWidth',10.0,'DisplayName','MHIT36 + cuDecomp + Euler + 256^3')
-plot(cudec512e(:,1),cudec512e(:,2),'*g','LineWidth',7.0,'DisplayName','MHIT36 + cuDecomp + Euler + 512^3')
+plot(cudec512e(:,1),cudec512e(:,2),'*g','LineWidth',9.0,'DisplayName','MHIT36 + cuDecomp + Euler + 512^3')
 plot(cudec128ab(:,1),cudec128ab(:,2),'^m','LineWidth',3.0,'DisplayName','MHIT36 + cuDecomp + AB + 128^3')
 plot(cudec256ab(:,1),cudec256ab(:,2),'sm','LineWidth',7.0,'DisplayName','MHIT36 + cuDecomp + AB + 256^3')
 plot(cudec512ab(:,1),cudec512ab(:,2),'*m','LineWidth',7.0,'DisplayName','MHIT36 + cuDecomp + AB + 512^3')
