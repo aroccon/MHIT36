@@ -31,6 +31,8 @@ Strange behaviof of the convective terms, introduced internal update if pr=1 or 
 - 26/02/25: Everyhting looks good; testing using the WMR benchmark. cuDecomp and single GPU version match very well; AB2 vs Euler minor differences. Added post-processing folder to compute dissipation. TG test seems very good, agreement with CaNS and other results. Time integration modified to AB2, test looks good.
 - 27/02/25: Strong scaling tests on Leonardo, nice scaling even for very small grids and using gpu managed memory.
 - 28/02/25: Finalized validation with the TG benchmark, eveything looks good, try 1024^3? scaling also good, try 4096^3 avoid output (540 GB x file)
+- 03/03/25: Working on an imporved Poisson solver on aroccon/cuDecomp git repository. Computational time seems much better (especially on large grids, almost 2X speed-up). Still something is off, double check in e out from the Poisson to see if in/out is different or is the solver.
+- 04/03/25: Updated results with 1024^3 for the same benchmark.
 
 # Multi-GPU version status
 
