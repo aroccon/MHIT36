@@ -190,8 +190,8 @@ allocate(rhsu_o(piX%shape(1),piX%shape(2),piX%shape(3)),rhsv_o(piX%shape(1),piX%
 allocate(div(piX%shape(1),piX%shape(2),piX%shape(3)))
 !PFM variables
 #if phiflag == 1
-allocate(phi(piX%shape(1), piX%shape(2), piX%shape(3)),rhsphi(piX%shape(1), piX%shape(2), piX%shape(3)))
-!allocate(normx(nx,nx,nx),normy(nx,nx,nx),normz(nx,nx,nx))
+allocate(phi(piX%shape(1),piX%shape(2),piX%shape(3)),rhsphi(piX%shape(1),piX%shape(2),piX%shape(3)))
+allocate(normx(piX%shape(1),piX%shape(2),piX%shape(3)),normy(piX%shape(1),piX%shape(2),piX%shape(3)),normz(piX%shape(1),piX%shape(2),piX%shape(3)))
 !allocate(curv(nx,nx,nx),gradphix(nx,nx,nx),gradphiy(nx,nx,nx),gradphiz(nx,nx,nx))
 !allocate(fxst(nx,nx,nx),fyst(nx,nx,nx),fzst(nx,nx,nx)) ! surface tension forces
 #endif
@@ -339,12 +339,135 @@ do t=tstart,tfin
    !########################################################################################################################################
    ! START STEP 4: PHASE-FIELD SOLVER (EXPLICIT)
    !########################################################################################################################################
+   #if phiflag == 1
    ! 4.1 RHS computation, no need of halo update in thoery
+   ! 4.1.1 Convective term
+   !$acc kernels
+   do k=1+halo_ext, piX%shape(3)-halo_ext
+      do j=1+halo_ext, piX%shape(2)-halo_ext
+            do i=1,nx
+               ip=i+1
+               jp=j+1
+               kp=k+1
+               im=i-1
+               jm=j-1
+               km=k-1
+               if (ip .gt. nx) ip=1
+               if (im .lt. 1) im=nx
+               rhsphi(i,j,k) = - (u(ip,j,k)*0.5d0*(phi(ip,j,k)+phi(i,j,k)) - u(i,j,k)*0.5d0*(phi(i,j,k)+phi(im,j,k)))*dxi  &
+                               - (v(i,jp,k)*0.5d0*(phi(i,jp,k)+phi(i,j,k)) - v(i,j,k)*0.5d0*(phi(i,j,k)+phi(i,jm,k)))*dxi  &
+                               - (w(i,j,kp)*0.5d0*(phi(i,j,kp)+phi(i,j,k)) - w(i,j,k)*0.5d0*(phi(i,j,k)+phi(i,j,km)))*dxi
+            enddo
+        enddo
+   enddo
+   !$acc end kernels
+
+   ! 4.1.2 Compute diffusive term 
+   !$acc kernels
+   do k=1+halo_ext, piX%shape(3)-halo_ext
+      do j=1+halo_ext, piX%shape(2)-halo_ext
+         do i=1,nx
+               ip=i+1
+               jp=j+1
+               kp=k+1
+               im=i-1
+               jm=j-1
+               km=k-1
+               if (ip .gt. nx) ip=1
+               if (im .lt. 1) im=nx
+               rhsphi(i,j,k)=rhsphi(i,j,k)+gamma*(eps*(phi(ip,j,k)-2.d0*phi(i,j,k)+phi(im,j,k))*ddxi + &
+                                                    eps*(phi(i,jp,k)-2.d0*phi(i,j,k)+phi(i,jm,k))*ddxi + &         
+                                                    eps*(phi(i,j,kp)-2.d0*phi(i,j,k)+phi(i,j,km))*ddxi)
+            enddo
+        enddo
+   enddo
+   !$acc end kernels
+
+   ! 4.1.3. Compute Sharpening term (gradien)
+   ! Substep 1 computer normals
+   !$acc kernels
+   do k=1+halo_ext, piX%shape(3)-halo_ext
+      do j=1+halo_ext, piX%shape(2)-halo_ext
+            do i=1,nx
+               ip=i+1
+               jp=j+1
+               kp=k+1
+               im=i-1
+               jm=j-1
+               km=k-1
+               if (ip .gt. nx) ip=1
+               if (im .lt. 1) im=nx
+               normx(i,j,k) = (phi(ip,j,k) - phi(im,j,k))
+               normy(i,j,k) = (phi(i,jp,k) - phi(i,jm,k))
+               normz(i,j,k) = (phi(i,j,kp) - phi(i,j,km)) 
+            enddo
+        enddo
+   enddo 
+   !$acc end kernels
+
+   ! Step 2: Compute normals (1.e-16 is a numerical tolerance)
+   !$acc kernels
+   do k=1+halo_ext, piX%shape(3)-halo_ext
+      do j=1+halo_ext, piX%shape(2)-halo_ext
+            do i=1,nx
+               normod = 1.d0/(sqrt(normx(i,j,k)**2d0 + normy(i,j,k)**2d0 + normz(i,j,k)**2d0) + 1.0E-16)
+               normx(i,j,k) = normx(i,j,k)*normod
+               normy(i,j,k) = normy(i,j,k)*normod
+               normz(i,j,k) = normz(i,j,k)*normod
+            enddo
+        enddo
+   enddo
+   !$acc end kernels
+
+   !write(*,*) "umax", umax
+
+   ! Compute sharpening term
+   !$acc kernels
+   gamma=1.d0*umax
+   do k=1+halo_ext, piX%shape(3)-halo_ext
+      do j=1+halo_ext, piX%shape(2)-halo_ext
+            do i=1,nx
+               ip=i+1
+               jp=j+1
+               kp=k+1
+               im=i-1
+               jm=j-1
+               km=k-1
+               if (ip .gt. nx) ip=1
+               if (im .lt. 1) im=nx
+               rhsphi(i,j,k)=rhsphi(i,j,k)+gamma*(((phi(ip,j,k)**2d0-phi(ip,j,k))*normx(ip,j,k)-(phi(im,j,k)**2d0-phi(im,j,k))*normx(im,j,k))*0.5d0*dxi + &
+                                                   ((phi(i,jp,k)**2d0-phi(i,jp,k))*normy(i,jp,k)-(phi(i,jm,k)**2d0-phi(i,jm,k))*normy(i,jm,k))*0.5d0*dxi + &
+                                                   ((phi(i,j,kp)**2d0-phi(i,j,kp))*normz(i,j,kp)-(phi(i,j,km)**2d0-phi(i,j,km))*normz(i,j,km))*0.5d0*dxi)
+            enddo
+        enddo
+    enddo
+    !$acc end kernels
+
    ! 4.2 Get phi at n+1 
+   !$acc kernels
+    do k=1,nx
+        do j=1,nx
+            do i=1,nx
+                phi(i,j,k) = phi(i,j,k) + dt*rhsphi(i,j,k)
+            enddo
+        enddo
+    enddo
    ! 4.3 Call halo exchnages along Y and Z for phi 
+   !$acc host_data use_device(phi)
+   CHECK_CUDECOMP_EXIT(cudecompUpdateHalosX(handle, grid_desc, phi, work_halo_d, CUDECOMP_DOUBLE, piX%halo_extents, halo_periods, 2))
+   CHECK_CUDECOMP_EXIT(cudecompUpdateHalosX(handle, grid_desc, phi, work_halo_d, CUDECOMP_DOUBLE, piX%halo_extents, halo_periods, 3))
+   !$acc end host_data 
+   #endif
    !########################################################################################################################################
-   ! END STEP 4: HASE-FIELD SOLVER (EXPLICIT)
+   ! END STEP 4: PHASE-FIELD SOLVER (EXPLICIT)
    !########################################################################################################################################
+
+
+
+
+
+
+
 
 
 
@@ -410,7 +533,6 @@ do t=tstart,tfin
    !write(55) v
    !close(55)
 
-
    !write(*,*) "max rhsu", maxval(rhsu)
    !write(*,*) "max rhsv", maxval(rhsv)
    !write(*,*) "max rhsw", maxval(rhsw)
@@ -456,14 +578,14 @@ do t=tstart,tfin
       do j = 1+halo_ext, piX%shape(2)-halo_ext
          jg = piX%lo(2) + j - 1 
          do i = 1, piX%shape(1)
-           ! ABC forcing
-             rhsu(i,j,k)= rhsu(i,j,k) + f3*sin(k0*x(kg))+f2*cos(k0*x(jg))
-             rhsv(i,j,k)= rhsv(i,j,k) + f1*sin(k0*x(i))+f3*cos(k0*x(kg))
-             rhsw(i,j,k)= rhsw(i,j,k) + f2*sin(k0*x(jg))+f1*cos(k0*x(i))
-             ! TG Forcing
-             !rhsu(i,j,k)= rhsu(i,j,k) + f1*sin(k0*x(i))*cos(k0*x(j))*cos(k0*x(k))
-             !rhsv(i,j,k)= rhsv(i,j,k) - f1*cos(k0*x(i))*sin(k0*x(j))*sin(k0*x(k))
-          enddo
+            ! ABC forcing
+            rhsu(i,j,k)= rhsu(i,j,k) + f3*sin(k0*x(kg))+f2*cos(k0*x(jg))
+            rhsv(i,j,k)= rhsv(i,j,k) + f1*sin(k0*x(i))+f3*cos(k0*x(kg))
+            rhsw(i,j,k)= rhsw(i,j,k) + f2*sin(k0*x(jg))+f1*cos(k0*x(i))
+            ! TG Forcing
+            !rhsu(i,j,k)= rhsu(i,j,k) + f1*sin(k0*x(i))*cos(k0*x(j))*cos(k0*x(k))
+            !rhsv(i,j,k)= rhsv(i,j,k) - f1*cos(k0*x(i))*sin(k0*x(j))*sin(k0*x(k))
+         enddo
       enddo
    enddo
    !$acc end kernels
@@ -500,6 +622,7 @@ do t=tstart,tfin
    vc=maxval(vstar)
    wc=maxval(wstar)
    umax=max(wc,max(uc,vc))
+   !umax is for rank, do a MPI reduction?
    !write(*,*) "Star max ",rank,umax
 
    ! 5.3 update halos (y and z directions), required to then compute the RHS of Poisson equation because of staggered grid
@@ -817,10 +940,10 @@ do t=tstart,tfin
          call writefield(t,2)
          call writefield(t,3)
          call writefield(t,4)
-     !#if phiflag == 1
+         #if phiflag == 1
          ! write phase-field (5)
-         ! call writefield(t,5)
-      !#endif
+         call writefield(t,5)
+         #endif
    endif
    !########################################################################################################################################
    ! END STEP 9: OUTPUT FIELDS N  

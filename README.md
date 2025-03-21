@@ -8,7 +8,7 @@
 ██      ██ ██   ██ ██    ██    ██████   ██████           ██████  ██████  ██████  ███████  ██████  ██████  ██      ██ ██      
 ~~~
 
-Tentative porting of MHIT36 to multi GPU using cuDecomp.
+Porting of MHIT36 to multi-GPU using cuDecomp.
 
 Log of changes/status of the porting
 - 06/02/25: MPI init in MHIT36 
@@ -34,6 +34,7 @@ Strange behaviof of the convective terms, introduced internal update if pr=1 or 
 - 03/03/25: Working on an imporved Poisson solver on aroccon/cuDecomp git repository. Computational time seems much better (especially on large grids, almost 2X speed-up). Still something is off, double check in e out from the Poisson to see if in/out is different or is the solver.
 - 04/03/25: Updated results with 1024^3 for the same benchmark.
 - 18/03/25: in aroccon/cuDecomp there is the optimized Poisson solver (D2Z and Z2D in the first step instead of Z2Z). This can give almost a factor 2 in performance as well as improves the scaling (even more usign larger grids). Two grid descriptors are however required, one for hanlding the halo in physical space and one for the complex space. The taylor-green examples has this setup (complex and real). Not an easy mod; keep it for later developments, work on phase-field first. Problem with error checking in the example comes from bad makefile (same issue was in Leonardo doing the first test, Makefile_local has been updated)
+- 21/03/25: Phase-field implemnted.
 
 # Multi-GPU version status
 
@@ -57,10 +58,13 @@ Strange behaviof of the convective terms, introduced internal update if pr=1 or 
 - MPI reading (no halo) (to be tested)
 - Serial reading (to avoid issue with Leonardo) ❌
 - Courant number check (MPI reduction) ✅ !only from rank 0? enough?
-- MPI I/O with different configurations (color by rank), exstensive check fo this part. ❌
+- MPI I/O with different configurations (color by rank), exstensive check fo this part. ✅
 - Move from Euler to AB2 as in MHIT36  ✅
 - Acceleration of some parts (not done at the moment to debug the solver) ✅
 - Check divergence of the fields ✅
+- Courant number via MPI reduction ❌
+- Umax via MPI reduction ❌
+- Surface tension forces ❌
 
 # Run the code
 
