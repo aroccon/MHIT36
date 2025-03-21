@@ -3,6 +3,7 @@ module param
     integer :: ny=nx,nz=nx
     double precision :: pi,lx,dx,dxi,ddxi,rhoi,twopi
     integer :: restart,tstart,tfin,dump
+    double precision :: gamma, normod
     double precision :: dt,mu,rho !flow parameters
     integer :: inflow
     double precision :: f1,f2,f3,k0 ! forcing parameters
@@ -50,9 +51,9 @@ end module velocity
 
 module phase
    double precision, allocatable :: phi(:,:,:), rhsphi(:,:,:)
-   !double precision, allocatable :: normx(:,:,:), normy(:,:,:), normz(:,:,:)
-   !double precision, allocatable :: curv(:,:,:), gradphix(:,:,:), gradphiy(:,:,:), gradphiz(:,:,:)
-   !double precision, allocatable :: fxst(:,:,:), fyst(:,:,:), fzst(:,:,:)
+   double precision, allocatable :: normx(:,:,:), normy(:,:,:), normz(:,:,:)
+   double precision, allocatable :: curv(:,:,:), gradphix(:,:,:), gradphiy(:,:,:), gradphiz(:,:,:)
+   double precision, allocatable :: fxst(:,:,:), fyst(:,:,:), fzst(:,:,:)
 end module phase
 
 

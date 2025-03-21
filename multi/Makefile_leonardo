@@ -18,12 +18,12 @@ OBJS = module.f90 main.f90 readinput.f90 readwrite.f90
 EXEC = mhit36
 
 $(EXEC):        $(OBJS)
-        $(LD) $(FFLAGS) $(OBJS) $(LIBS) -o $@
+	$(LD) $(FFLAGS) $(OBJS) $(LIBS) -o $@
 
 clean:
-      	$(RM) $(EXEC)
+	$(RM) $(EXEC)
 
 .SUFFIXES: .o
 
 .f90.o:
-       	$(FC)  -c $(FFLAGS) $<
+	$(FC)  -c $(FFLAGS) $<

@@ -452,6 +452,7 @@ do t=tstart,tfin
             enddo
         enddo
     enddo
+   !$acc end kernels
    ! 4.3 Call halo exchnages along Y and Z for phi 
    !$acc host_data use_device(phi)
    CHECK_CUDECOMP_EXIT(cudecompUpdateHalosX(handle, grid_desc, phi, work_halo_d, CUDECOMP_DOUBLE, piX%halo_extents, halo_periods, 2))
