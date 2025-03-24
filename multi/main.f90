@@ -896,7 +896,7 @@ do t=tstart,tfin
    umean=umean/nx/(piX%shape(2)-2*halo_ext)/(piX%shape(3)-2*halo_ext)
    vmean=vmean/nx/(piX%shape(2)-2*halo_ext)/(piX%shape(3)-2*halo_ext)
    wmean=wmean/nx/(piX%shape(2)-2*halo_ext)/(piX%shape(3)-2*halo_ext)
-   write(*,*) "rank,umean", rank, umean
+   !write(*,*) "rank,umean", rank, umean
    !write(*,*) "rank,umean", rank, vmean
    !write(*,*) "rank,umean", rank, wmean
 
@@ -905,7 +905,7 @@ do t=tstart,tfin
    call MPI_Allreduce(vmean,gvmean,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD, ierr)
    call MPI_Allreduce(wmean,gwmean,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD, ierr)
 
-   write(*,*) "rank,gumean", rank, gumean/ranks
+   !write(*,*) "rank,gumean", rank, gumean/ranks
    !write(*,*) "rank,gvmean", rank, gvmean/ranks
    !write(*,*) "rank,gwmean", rank, gwmean/ranks
 
