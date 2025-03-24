@@ -63,9 +63,10 @@ Strange behaviof of the convective terms, introduced internal update if pr=1 or 
 - Move from Euler to AB2 as in MHIT36  ✅
 - Acceleration of some parts (not done at the moment to debug the solver) ✅
 - Check divergence of the fields ✅
-- Courant number via MPI reduction ❌
-- Umax via MPI reduction ❌
+- Courant number via MPI reduction ✅
+- Umax via MPI reduction ✅
 - Surface tension forces ❌
+- Remove mean flow via all reduce ✅
 
 # Run the code
 

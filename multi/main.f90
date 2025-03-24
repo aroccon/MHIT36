@@ -878,13 +878,16 @@ do t=tstart,tfin
    !$acc end kernels 
 
    ! Remove mean velocity (get local mean of the rank)
+   umean=0.d0
+   vmean=0.d0
+   wmean=0.d0
    !$acc kernels 
    do k = 1+halo_ext, piX%shape(3)-halo_ext
       do j = 1+halo_ext, piX%shape(2)-halo_ext
          do i = 1, piX%shape(1) ! equal to nx (no halo on x)
-              u(i,j,k)=umean + u(i,k,j)
-              v(i,j,k)=vmean + v(i,k,j)
-              w(i,j,k)=wmean + w(i,k,j)
+              umean=umean + u(i,j,k)
+              vmean=vmean + v(i,j,k)
+              wmean=wmean + w(i,j,k)
           enddo
       enddo
    enddo
