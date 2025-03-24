@@ -35,6 +35,7 @@ Strange behaviof of the convective terms, introduced internal update if pr=1 or 
 - 04/03/25: Updated results with 1024^3 for the same benchmark.
 - 18/03/25: in aroccon/cuDecomp there is the optimized Poisson solver (D2Z and Z2D in the first step instead of Z2Z). This can give almost a factor 2 in performance as well as improves the scaling (even more usign larger grids). Two grid descriptors are however required, one for hanlding the halo in physical space and one for the complex space. The taylor-green examples has this setup (complex and real). Not an easy mod; keep it for later developments, work on phase-field first. Problem with error checking in the example comes from bad makefile (same issue was in Leonardo doing the first test, Makefile_local has been updated)
 - 21/03/25: Phase-field implemnted, looks fine
+- 24/03/25: Courante via MPI Reduce (Max among MPI task implemented)
 
 # Multi-GPU version status
 

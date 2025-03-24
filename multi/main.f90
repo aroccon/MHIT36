@@ -897,10 +897,13 @@ do t=tstart,tfin
    wc=maxval(w)
    umax=max(wc,max(uc,vc))
    cou=umax*dt*dxi
-   write(*,*) "Rank + Courant number: ",rank,cou
+   ! get max(cou) among all MPI tasks
+   ! write(*,*) "Rank + Courant number: ",rank,cou
+   call MPI_Reduce(cou,gcou,1,MPI_DOUBLE_PRECISION,MPI_MAX,0,MPI_COMM_WORLD, ierr)
+   if (rank.eq.0) write(*,*) "CFL (max among tasks)", gcou
 
    call cpu_time(timef)
-   if (rank.eq.0)  print '(" Time elapsed = ",f6.1," ms")',1000*(timef-times)
+   if (rank.eq.0) write(*,*) '(" Time elapsed = ",f6.1," ms")',1000*(timef-times)
 
    ! Check divergence (can be skipped in production)
    !!$acc kernels 
