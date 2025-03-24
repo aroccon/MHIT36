@@ -857,8 +857,9 @@ do t=tstart,tfin
    !########################################################################################################################################
    ! START STEP 8: VELOCITY CORRECTION
    ! ########################################################################################################################################
-   ! 8.1 correct velocity 
-   ! 8.2 Call halo exchnages along Y and Z for u,v,w
+   ! 8.1 Correct velocity 
+   ! 8.2 Remove mean velocity if using ABC forcing
+   ! 8.3 Call halo exchnages along Y and Z for u,v,w
    ! Correct velocity, pressure has also the halo
    !$acc kernels 
    do k = 1+halo_ext, piX%shape(3)-halo_ext
@@ -875,6 +876,42 @@ do t=tstart,tfin
       enddo
    enddo
    !$acc end kernels 
+
+   ! Remove mean velocity (get local mean of the rank)
+   !$acc kernels 
+   do k = 1+halo_ext, piX%shape(3)-halo_ext
+      do j = 1+halo_ext, piX%shape(2)-halo_ext
+         do i = 1, piX%shape(1) ! equal to nx (no halo on x)
+              u(i,j,k)=umean + u(i,k,j)
+              v(i,j,k)=vmean + v(i,k,j)
+              w(i,j,k)=wmean + w(i,k,j)
+          enddo
+      enddo
+   enddo
+   !$acc end kernels 
+
+   umean=umean/nx/(piX%shape(2)-2*halo_ext)/(piX%shape(3)-2*halo_ext)
+   vmean=vmean/nx/(piX%shape(2)-2*halo_ext)/(piX%shape(3)-2*halo_ext)
+   wmean=wmean/nx/(piX%shape(2)-2*halo_ext)/(piX%shape(3)-2*halo_ext)
+   write(*,*) "rank,umean", rank, umean
+   !write(*,*) "rank,umean", rank, vmean
+   !write(*,*) "rank,umean", rank, wmean
+
+   ! Find global mean (MPI_SUM and then divide by ranks)
+   call MPI_Allreduce(umean,gumean,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD, ierr)
+   call MPI_Allreduce(vmean,gvmean,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD, ierr)
+   call MPI_Allreduce(wmean,gwmean,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD, ierr)
+
+   write(*,*) "rank,gumean", rank, gumean/ranks
+   !write(*,*) "rank,gvmean", rank, gvmean/ranks
+   !write(*,*) "rank,gwmean", rank, gwmean/ranks
+
+   !$acc kernels 
+   u=u-(gumean/ranks)
+   v=v-(gvmean/ranks)
+   w=w-(gwmean/ranks)
+   !$acc end kernels 
+
 
    ! 8.3 update halos (y and z directions), required to then compute the RHS of Poisson equation because of staggered grid
    !$acc host_data use_device(u)
