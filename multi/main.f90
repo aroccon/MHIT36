@@ -534,15 +534,6 @@ do t=tstart,tfin
    !write(55) v
    !close(55)
 
-   !write(*,*) "max rhsu", maxval(rhsu)
-   !write(*,*) "max rhsv", maxval(rhsv)
-   !write(*,*) "max rhsw", maxval(rhsw)
-   ! to be removed - debug only
-   !write(namefile,'(a,i3.3,a)') 'rhsu_',rank,'.dat'
-   !open(unit=55,file=namefile,form='unformatted',position='append',access='stream',status='new')
-   !write(55) rhsu
-   !close(55)
-
    ! 5.1b Compute viscous terms
    !$acc parallel loop collapse(3) private(im,jm,km)
    do k=1+halo_ext, piX%shape(3)-halo_ext
@@ -675,12 +666,6 @@ do t=tstart,tfin
    !$acc end kernels
 
    ! Feed rhsp into the Poisson solver, this part can be optimized in the future (less copies of arrays)
-
-   !block
-   !complex(8), pointer :: psi3(:,:,:)
-   !call c_f_pointer(c_loc(psi), psi3, [piX%shape(1), piX%shape(2), piX%shape(3)])
-
-   !rhsp is a standard array (similar to those that are in the code)
    !$acc kernels
    do kl = 1+halo_ext, piX%shape(3)-halo_ext
       !kg = piX%lo(3) + kl - 1 

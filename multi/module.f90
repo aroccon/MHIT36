@@ -8,7 +8,7 @@ module param
     integer :: inflow
     double precision :: f1,f2,f3,k0 ! forcing parameters
     double precision :: radius, sigma, epsr, eps, pos ! phase-field parameters
-    real(8) :: times,timef
+    double precision :: times,timef
 end module param
 
 
@@ -42,10 +42,10 @@ module velocity
    double precision, allocatable :: rhsu(:,:,:), rhsv(:,:,:), rhsw(:,:,:)
    double precision, allocatable :: rhsu_o(:,:,:), rhsv_o(:,:,:), rhsw_o(:,:,:)
    complex(8), allocatable :: rhsp_complex(:,:,:)
-   real(8), allocatable :: rhsp(:,:,:), p(:,:,:)
-   real(8), allocatable :: div(:,:,:)
-   real(8) :: uc,vc,wc,umax,cou,gcou,alpha,beta
-   real(8) :: h11,h12,h13,h21,h22,h23,h31,h32,h33
+   double precision, allocatable :: rhsp(:,:,:), p(:,:,:)
+   double precision, allocatable :: div(:,:,:)
+   double precision :: uc,vc,wc,umax,cou,gcou,alpha,beta
+   double precision :: h11,h12,h13,h21,h22,h23,h31,h32,h33
    double precision :: umean, vmean, wmean, gumean, gvmean, gwmean
 end module velocity
 
