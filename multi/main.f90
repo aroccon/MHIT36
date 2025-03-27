@@ -192,8 +192,8 @@ allocate(div(piX%shape(1),piX%shape(2),piX%shape(3)))
 #if phiflag == 1
 allocate(phi(piX%shape(1),piX%shape(2),piX%shape(3)),rhsphi(piX%shape(1),piX%shape(2),piX%shape(3)))
 allocate(normx(piX%shape(1),piX%shape(2),piX%shape(3)),normy(piX%shape(1),piX%shape(2),piX%shape(3)),normz(piX%shape(1),piX%shape(2),piX%shape(3)))
-!allocate(curv(nx,nx,nx),gradphix(nx,nx,nx),gradphiy(nx,nx,nx),gradphiz(nx,nx,nx))
-!allocate(fxst(nx,nx,nx),fyst(nx,nx,nx),fzst(nx,nx,nx)) ! surface tension forces
+allocate(curv(nx,nx,nx),gradphix(nx,nx,nx),gradphiy(nx,nx,nx),gradphiz(nx,nx,nx))
+allocate(fxst(nx,nx,nx),fyst(nx,nx,nx),fzst(nx,nx,nx)) ! surface tension forces
 #endif
 
 ! allocate arrays for transpositions and halo exchanges 
