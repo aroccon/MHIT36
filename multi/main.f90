@@ -405,7 +405,7 @@ do t=tstart,tfin
    enddo 
    !$acc end kernels
 
-   ! Update normx,normy and normz halos (y and z directions), required to then compute the RHS of Poisson equation because of staggered grid
+   ! Update normx,normy and normz halos, required to then compute normal derivative
    !$acc host_data use_device(normx)
    CHECK_CUDECOMP_EXIT(cudecompUpdateHalosX(handle, grid_desc, normx, work_halo_d, CUDECOMP_DOUBLE, piX%halo_extents, halo_periods, 2))
    CHECK_CUDECOMP_EXIT(cudecompUpdateHalosX(handle, grid_desc, normx, work_halo_d, CUDECOMP_DOUBLE, piX%halo_extents, halo_periods, 3))
@@ -547,7 +547,7 @@ do t=tstart,tfin
    !$acc parallel loop collapse(3) private(im,jm,km)
    do k=1+halo_ext, piX%shape(3)-halo_ext
       do j=1+halo_ext, piX%shape(2)-halo_ext
-          do i=1,nx
+         do i=1,nx
             ip=i+1
             jp=j+1
             kp=k+1
@@ -568,7 +568,7 @@ do t=tstart,tfin
             rhsu(i,j,k)=rhsu(i,j,k)+(h11+h12+h13)*rhoi
             rhsv(i,j,k)=rhsv(i,j,k)+(h21+h22+h23)*rhoi
             rhsw(i,j,k)=rhsw(i,j,k)+(h31+h32+h33)*rhoi
-          enddo
+         enddo
       enddo
    enddo
 
@@ -594,8 +594,9 @@ do t=tstart,tfin
    ! Surface tension forces
    #if phiflag == 1
    !$acc kernels
-   do k=1,nx
-      do j=1,nx
+   !Obtain surface tension forces evaluated at the center of the cell (same as where phi is located)
+   do k=1+halo_ext, piX%shape(3)-halo_ext
+      do j=1+halo_ext, piX%shape(2)-halo_ext
          do i=1,nx
             ip=i+1
             jp=j+1
@@ -612,6 +613,34 @@ do t=tstart,tfin
             fxst(i,j,k)=-6.d0*sigma*curv(i,j,k)*gradphix(i,j,k)*phi(i,j,k)*(1.d0-phi(i,j,k))
             fyst(i,j,k)=-6.d0*sigma*curv(i,j,k)*gradphiy(i,j,k)*phi(i,j,k)*(1.d0-phi(i,j,k))
             fzst(i,j,k)=-6.d0*sigma*curv(i,j,k)*gradphiz(i,j,k)*phi(i,j,k)*(1.d0-phi(i,j,k))
+         enddo
+      enddo
+   enddo
+   !$acc end kernels
+
+   ! Update halo of fxst, fyst and fzst (reuired then to interpolate at velocity points)
+   !$acc host_data use_device(fxst)
+   CHECK_CUDECOMP_EXIT(cudecompUpdateHalosX(handle, grid_desc, fxst, work_halo_d, CUDECOMP_DOUBLE, piX%halo_extents, halo_periods, 2))
+   CHECK_CUDECOMP_EXIT(cudecompUpdateHalosX(handle, grid_desc, fxst, work_halo_d, CUDECOMP_DOUBLE, piX%halo_extents, halo_periods, 3))
+   !$acc end host_data 
+   !$acc host_data use_device(fyst)
+   CHECK_CUDECOMP_EXIT(cudecompUpdateHalosX(handle, grid_desc, fyst, work_halo_d, CUDECOMP_DOUBLE, piX%halo_extents, halo_periods, 2))
+   CHECK_CUDECOMP_EXIT(cudecompUpdateHalosX(handle, grid_desc, fyst, work_halo_d, CUDECOMP_DOUBLE, piX%halo_extents, halo_periods, 3))
+   !$acc end host_data 
+   !$acc host_data use_device(fzst)
+   CHECK_CUDECOMP_EXIT(cudecompUpdateHalosX(handle, grid_desc, fzst, work_halo_d, CUDECOMP_DOUBLE, piX%halo_extents, halo_periods, 2))
+   CHECK_CUDECOMP_EXIT(cudecompUpdateHalosX(handle, grid_desc, fzst, work_halo_d, CUDECOMP_DOUBLE, piX%halo_extents, halo_periods, 3))
+   !$acc end host_data 
+   
+   ! Interpolate force at velocity points
+   !$acc kernels
+   do k=1+halo_ext, piX%shape(3)-halo_ext
+      do j=1+halo_ext, piX%shape(2)-halo_ext
+         do i=1,nx
+            im=i-1
+            jm=j-1
+            km=k-1
+            if (im .lt. 1) im=nx
             rhsu(i,j,k)=rhsu(i,j,k) + 0.5d0*(fxst(im,j,k)+fxst(i,j,k))*rhoi
             rhsv(i,j,k)=rhsv(i,j,k) + 0.5d0*(fyst(i,jm,k)+fyst(i,j,k))*rhoi
             rhsw(i,j,k)=rhsw(i,j,k) + 0.5d0*(fzst(i,j,km)+fzst(i,j,k))*rhoi
