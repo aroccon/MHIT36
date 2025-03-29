@@ -529,11 +529,6 @@ do t=tstart,tfin
       enddo
    enddo
 
-   !write(namefile,'(a,i3.3,a)') 'out_',rank,'.dat'
-   !open(unit=55,file=namefile,form='unformatted',position='append',access='stream',status='new')
-   !write(55) v
-   !close(55)
-
    ! 5.1b Compute viscous terms
    !$acc parallel loop collapse(3) private(im,jm,km)
    do k=1+halo_ext, piX%shape(3)-halo_ext
@@ -584,7 +579,32 @@ do t=tstart,tfin
 
    ! Surface tension forces
    #if phiflag == 1
-   ! Copy from single version, to be implemented
+   !$acc kernels
+   do k=1,nx
+      do j=1,nx
+         do i=1,nx
+            ip=i+1
+            jp=j+1
+            kp=k+1
+            im=i-1
+            jm=j-1
+            km=k-1
+            if (ip .gt. nx) ip=1
+            if (im .lt. 1) im=nx
+            curv(i,j,k)=0.5d0*(normx(ip,j,k)-normx(im,j,k))*dxi+0.5d0*(normy(i,jp,k)-normy(i,jm,k))*dxi+0.5d0*(normz(i,j,kp)-normz(i,j,km))*dxi
+            gradphix(i,j,k)=0.5d0*(phi(ip,j,k)-phi(im,j,k))*dxi
+            gradphiy(i,j,k)=0.5d0*(phi(i,jp,k)-phi(i,jm,k))*dxi
+            gradphiz(i,j,k)=0.5d0*(phi(i,j,kp)-phi(i,j,km))*dxi
+            fxst(i,j,k)=-6.d0*sigma*curv(i,j,k)*gradphix(i,j,k)*phi(i,j,k)*(1.d0-phi(i,j,k))
+            fyst(i,j,k)=-6.d0*sigma*curv(i,j,k)*gradphiy(i,j,k)*phi(i,j,k)*(1.d0-phi(i,j,k))
+            fzst(i,j,k)=-6.d0*sigma*curv(i,j,k)*gradphiz(i,j,k)*phi(i,j,k)*(1.d0-phi(i,j,k))
+            rhsu(i,j,k)=rhsu(i,j,k) + 0.5d0*(fxst(im,j,k)+fxst(i,j,k))*rhoi
+            rhsv(i,j,k)=rhsv(i,j,k) + 0.5d0*(fyst(i,jm,k)+fyst(i,j,k))*rhoi
+            rhsw(i,j,k)=rhsw(i,j,k) + 0.5d0*(fzst(i,j,km)+fzst(i,j,k))*rhoi
+         enddo
+      enddo
+   enddo
+   !$acc end kernels   
    #endif
 
    ! 5.2 find u, v and w star (explicit Eulero), only in the inner nodes 
@@ -648,7 +668,7 @@ do t=tstart,tfin
    ! initialize phi and analytical solution
    ! for the moment keep it similar to the cuDecomp example, can be optimized in the future 
    ! 6.1 Compute rhs of Poisson equation div*ustar: divergence at the cell center 
-   ! I'vd done the halo updates so to compute the divergence at the pencil border i have the ustar from the halo
+   ! I've done the halo updates so to compute the divergence at the pencil border i have the ustar from the halo
    !$acc kernels
    do k=1+halo_ext, piX%shape(3)-halo_ext
       do j=1+halo_ext, piX%shape(2)-halo_ext
