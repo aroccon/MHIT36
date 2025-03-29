@@ -54,7 +54,7 @@ ierr = cudaSetDevice(localRank) !assign GPU to MPI rank
 call readinput
 
 ! hard coded, then from input
-pr = 2
+pr = 4
 pc = 1
 halo_ext=1
 comm_backend = CUDECOMP_TRANSPOSE_COMM_MPI_P2P
@@ -775,10 +775,8 @@ do t=tstart,tfin
    if (status /= CUFFT_SUCCESS) write(*,*) 'X inverse error: ', status
 
    ! update halo nodes with pressure (needed for the pressure correction step), using device variable no need to use host-data
-   ! Update X-pencil halos in Y direction
+   ! Update X-pencil halos in Y and Z direction
    CHECK_CUDECOMP_EXIT(cudecompUpdateHalosX(handle, grid_desc, psi_d, work_halo_d, CUDECOMP_DOUBLE_COMPLEX, piX%halo_extents, halo_periods, 2))
-
-   ! Update X-pencil halos in Z direction
    CHECK_CUDECOMP_EXIT(cudecompUpdateHalosX(handle, grid_desc, psi_d, work_halo_d, CUDECOMP_DOUBLE_COMPLEX, piX%halo_extents, halo_periods, 3))
 
    !D2H transfer
@@ -928,7 +926,7 @@ do t=tstart,tfin
    if (rank.eq.0) write(*,*) "CFL (max among tasks)", gcou
 
    call cpu_time(timef)
-   if (rank.eq.0) write(*,*) '(" Time elapsed = ",f6.1," ms")',1000*(timef-times)
+   if (rank.eq.0) print '(" Time elapsed = ",f6.1," ms")',1000*(timef-times)
 
    ! Check divergence (can be skipped in production)
    !!$acc kernels 
