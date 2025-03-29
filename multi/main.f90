@@ -35,7 +35,7 @@ character(len=40) :: namefile
 ! Code variables
 
 ! Enable or disable phase field (acceleration eneabled by default)
-#define phiflag 0
+#define phiflag 1
 
 !########################################################################################################################################
 ! 1. INITIALIZATION OF MPI AND cuDECOMP AUTOTUNING : START
@@ -388,34 +388,48 @@ do t=tstart,tfin
    !$acc kernels
    do k=1+halo_ext, piX%shape(3)-halo_ext
       do j=1+halo_ext, piX%shape(2)-halo_ext
-            do i=1,nx
-               ip=i+1
-               jp=j+1
-               kp=k+1
-               im=i-1
-               jm=j-1
-               km=k-1
-               if (ip .gt. nx) ip=1
-               if (im .lt. 1) im=nx
-               normx(i,j,k) = (phi(ip,j,k) - phi(im,j,k))
-               normy(i,j,k) = (phi(i,jp,k) - phi(i,jm,k))
-               normz(i,j,k) = (phi(i,j,kp) - phi(i,j,km)) 
-            enddo
-        enddo
+         do i=1,nx
+            ip=i+1
+            jp=j+1
+            kp=k+1
+            im=i-1
+            jm=j-1
+            km=k-1
+            if (ip .gt. nx) ip=1
+            if (im .lt. 1) im=nx
+            normx(i,j,k) = (phi(ip,j,k) - phi(im,j,k))
+            normy(i,j,k) = (phi(i,jp,k) - phi(i,jm,k))
+            normz(i,j,k) = (phi(i,j,kp) - phi(i,j,km)) 
+         enddo
+      enddo
    enddo 
    !$acc end kernels
 
+   ! Update normx,normy and normz halos (y and z directions), required to then compute the RHS of Poisson equation because of staggered grid
+   !$acc host_data use_device(normx)
+   CHECK_CUDECOMP_EXIT(cudecompUpdateHalosX(handle, grid_desc, normx, work_halo_d, CUDECOMP_DOUBLE, piX%halo_extents, halo_periods, 2))
+   CHECK_CUDECOMP_EXIT(cudecompUpdateHalosX(handle, grid_desc, normx, work_halo_d, CUDECOMP_DOUBLE, piX%halo_extents, halo_periods, 3))
+   !$acc end host_data 
+   !$acc host_data use_device(normy)
+   CHECK_CUDECOMP_EXIT(cudecompUpdateHalosX(handle, grid_desc, normy, work_halo_d, CUDECOMP_DOUBLE, piX%halo_extents, halo_periods, 2))
+   CHECK_CUDECOMP_EXIT(cudecompUpdateHalosX(handle, grid_desc, normy, work_halo_d, CUDECOMP_DOUBLE, piX%halo_extents, halo_periods, 3))
+   !$acc end host_data 
+   !$acc host_data use_device(normz)
+   CHECK_CUDECOMP_EXIT(cudecompUpdateHalosX(handle, grid_desc, normz, work_halo_d, CUDECOMP_DOUBLE, piX%halo_extents, halo_periods, 2))
+   CHECK_CUDECOMP_EXIT(cudecompUpdateHalosX(handle, grid_desc, normz, work_halo_d, CUDECOMP_DOUBLE, piX%halo_extents, halo_periods, 3))
+   !$acc end host_data 
+
    ! Step 2: Compute normals (1.e-16 is a numerical tolerance)
    !$acc kernels
-   do k=1+halo_ext, piX%shape(3)-halo_ext
-      do j=1+halo_ext, piX%shape(2)-halo_ext
-            do i=1,nx
-               normod = 1.d0/(sqrt(normx(i,j,k)**2d0 + normy(i,j,k)**2d0 + normz(i,j,k)**2d0) + 1.0E-16)
-               normx(i,j,k) = normx(i,j,k)*normod
-               normy(i,j,k) = normy(i,j,k)*normod
-               normz(i,j,k) = normz(i,j,k)*normod
-            enddo
-        enddo
+   do k=1, piX%shape(3)
+      do j=1, piX%shape(2)
+         do i=1,nx
+            normod = 1.d0/(sqrt(normx(i,j,k)**2d0 + normy(i,j,k)**2d0 + normz(i,j,k)**2d0) + 1.0E-16)
+            normx(i,j,k) = normx(i,j,k)*normod
+            normy(i,j,k) = normy(i,j,k)*normod
+            normz(i,j,k) = normz(i,j,k)*normod
+         enddo
+      enddo
    enddo
    !$acc end kernels
 
