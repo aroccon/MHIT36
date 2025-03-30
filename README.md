@@ -38,7 +38,7 @@ Porting of MHIT36 to multi-GPU using cuDecomp.
 - Check divergence of the fields ✅
 - Courant number via MPI reduction ✅
 - Umax via MPI reduction ✅
-- Surface tension forces ❌
+- Surface tension forces ✅
 - Remove mean flow via all reduce ✅
 
 # Run the code
