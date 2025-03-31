@@ -80,8 +80,7 @@ Strong scaling results obtained on Leonardo (4 x A100 64 GB x node)
 
 # Validation
 
-Benchamrk present in "W.M.VanRees,A.Leonard,D.Pullin,P.Koumoutsakos,Acomparisonofvortexandpseudo-spectralmethodsforthesimulationofperiodicvortical
-flowsathighReynoldsnumbers,J.Comput.Phys.230(8)(2011)2794–2805" and also Used in CaNS.
+Benchamrk present in "W.M.VanRees,A.Leonard,D.Pullin,P.Koumoutsakos,A comparison of vortex and pseudo-spectral methods for the simulation of periodic vortical flows at high Reynolds numbers,J. Comput. Phys.2 30(8)(2011)2794–2805" and also Used in CaNS.
 
 Time evolution of the viscous dissipation:
 
