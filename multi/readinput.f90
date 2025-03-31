@@ -16,6 +16,7 @@ read(55,*) tfin
 read(55,*) dump
 !Flow parameters
 read(55,*) inflow
+read(55,*) inphi
 read(55,*) dt
 read(55,*) mu
 read(55,*) rho

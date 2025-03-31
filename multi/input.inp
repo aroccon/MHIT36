@@ -3,6 +3,7 @@
 20000       ! Final time step
 1000        ! Saving frequency
 0           ! inflow condition (0=Taylor green, 1=read from fields)
+0           ! phase-field initial condition (0=circular drop, 1=read from fields)
 0.0002      ! dt for the simulation
 0.006       ! mu (viscosity)
 1.000       ! density

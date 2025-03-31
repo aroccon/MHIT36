@@ -225,7 +225,7 @@ CHECK_CUDECOMP_EXIT(cudecompMalloc(handle, grid_desc, work_halo_d, nElemWork_hal
 ! 3.2 Call halo exchnages along Y and Z for u,v,w and phi
 
 if (restart .eq. 0) then !fresh start Taylor Green or read from file in init folder
-   if (rank.eq.0) write(*,*) "Initialize velocity field (fresh start)"
+if (rank.eq.0) write(*,*) "Initialize velocity field (fresh start)"
    if (inflow .eq. 0) then
       if (rank.eq.0) write(*,*) "Initialize Taylor-green"
       do k = 1+halo_ext, piX%shape(3)-halo_ext
@@ -241,17 +241,17 @@ if (restart .eq. 0) then !fresh start Taylor Green or read from file in init fol
       enddo
    endif
    if (inflow .eq. 1) then
-      if (rank.eq.0)  write(*,*) "Initialize frow data"
-      !call readfield(t,1)
-      !call readfield(t,2)
-      !call readfield(t,3)
+   if (rank.eq.0)  write(*,*) "Initialize frow data"
+         call readfield(1)
+         call readfield(2)
+         call readfield(3)
+      endif
    endif
-endif
 if (restart .eq. 1) then !restart, ignore inflow and read the tstart field 
    if (rank.eq.0)  write(*,*) "Initialize velocity field (from output folder), iteration:", tstart
-   !call readfield_restart(tstart,1)
-   !call readfield_restart(tstart,2)
-   !call readfield_restart(tstart,3)
+   call readfield_restart(tstart,1)
+   call readfield_restart(tstart,2)
+   call readfield_restart(tstart,3)
 endif
 
 ! update halo cells along y and z directions (enough only if pr and pc are non-unitary)
@@ -272,21 +272,28 @@ CHECK_CUDECOMP_EXIT(cudecompUpdateHalosX(handle, grid_desc, w, work_halo_d, CUDE
 ! initialize phase-field
 #if phiflag == 1
 if (restart .eq. 0) then
-    if (rank.eq.0) write(*,*) 'Initialize PFM Spherical drop (fresh start)'
-    do k = 1+halo_ext, piX%shape(3)-halo_ext
+if (rank.eq.0) write(*,*) 'Initialize phase field (fresh start)'
+   if (inflow .eq. 0) then
+   if (rank.eq.0) write(*,*) 'Spherical drop'
+      do k = 1+halo_ext, piX%shape(3)-halo_ext
       kg = piX%lo(3) + k - 1 
-      do j = 1+halo_ext, piX%shape(2)-halo_ext
+         do j = 1+halo_ext, piX%shape(2)-halo_ext
          jg = piX%lo(2) + j - 1 
-         do i = 1, piX%shape(1)
+            do i = 1, piX%shape(1)
                 pos=(x(i)-lx/2)**2d0 +  (x(jg)-lx/2)**2d0 + (x(kg)-lx/2)**2d0
                 phi(i,j,k) = 0.5d0*(1.d0-tanh((sqrt(pos)-radius)/2/eps))
             enddo
         enddo
     enddo
+   endif
+   if (inflow .eq. 1) then
+      if (rank.eq.0)  write(*,*) "Initialize phase-field from data"
+      call readfield(5)
+   endif
 endif
 if (restart .eq. 1) then
     write(*,*) "Initialize phase-field (restart, from output folder), iteration:", tstart
-!    !call readfield_restart(tstart,5)
+    call readfield_restart(tstart,5)
 endif
 ! update halo
 !$acc host_data use_device(phi)

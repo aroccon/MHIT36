@@ -5,7 +5,7 @@ module param
     integer :: restart,tstart,tfin,dump
     double precision :: gamma, normod
     double precision :: dt,mu,rho !flow parameters
-    integer :: inflow
+    integer :: inflow, inphi
     double precision :: f1,f2,f3,k0 ! forcing parameters
     double precision :: radius, sigma, epsr, eps, pos ! phase-field parameters
     double precision :: times,timef
