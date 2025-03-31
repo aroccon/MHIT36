@@ -25,7 +25,7 @@ double precision, allocatable :: out(:,:,:)
 ! fieldn=5 means phi
 
 ! define basic quantities to be used later (gloabl and pencil size)
-g_size=[nx, nx, nx] ! global size
+g_size=[nx, ny, nz] ! global size
 p_size=[piX%shape(1), piX%shape(2)-2*halo_ext, piX%shape(3)-2*halo_ext] !<- pencil has no halo along x
 fstart=[piX%lo(1)-1,piX%lo(2)-1,piX%lo(3)-1]
 ! for debug
@@ -131,7 +131,7 @@ double precision, allocatable :: in(:,:,:)
 ! fieldn=5 means phi
 
 ! define basic quantities to be used later (gloabl and pencil size)
-g_size=[nx, nx, nx] ! global size
+g_size=[nx, ny, nz] ! global size
 p_size=[piX%shape(1), piX%shape(2)-2*halo_ext, piX%shape(3)-2*halo_ext] !<- pencil has no halo along x
 fstart=[piX%lo(1)-1,piX%lo(2)-1,piX%lo(3)-1] !<- MPI is in C and index start from 0 (not 1)
 ! for debug
@@ -143,58 +143,63 @@ allocate(in(p_size(1),p_size(2),p_size(3))) !<- no halos read
 !write(*,*) "in readwrite"
 
 if (fieldn .eq. 1) then
-  write(namefile,'(a,i8.8,a)') './input/u.dat'
+  namefile='./input/u.dat'
   call mpi_file_open(MPI_COMM_WORLD,namefile,mpi_mode_rdonly,mpi_info_null,f_handle,ierr)
   call mpi_type_create_subarray(3,g_size,p_size,fstart,mpi_order_fortran,mpi_double_precision,ftype,ierr)
   call mpi_type_commit(ftype,ierr)
   call mpi_file_set_view(f_handle,offset,mpi_double_precision,ftype,'native',mpi_info_null,ierr)
-  call mpi_file_read_all(f_handle,in,p_size(1)*p_size(2)*p_size(3),mpi_double_precision,mpi_status_ignore,ierr)
+  !call mpi_file_read_all(f_handle,in,p_size(1)*p_size(2)*p_size(3),mpi_double_precision,mpi_status_ignore,ierr)
+  call mpi_file_read(f_handle,in,p_size(1)*p_size(2)*p_size(3),mpi_double_precision,mpi_status_ignore,ierr)
   call mpi_file_close(f_handle,ierr)
   u(1:nx,1+halo_ext:piX%shape(2)-halo_ext,1+halo_ext:piX%shape(3)-halo_ext)=in !<- read only the inner parts (no halo) u has halos; in no halos
 endif
 
 if (fieldn .eq. 2) then
-  write(namefile,'(a,i8.8,a)') './input/v.dat'
+  namefile='./input/v.dat'
   call mpi_file_open(MPI_COMM_WORLD,namefile,mpi_mode_rdonly,mpi_info_null,f_handle,ierr)
   call mpi_type_create_subarray(3,g_size,p_size,fstart,mpi_order_fortran,mpi_double_precision,ftype,ierr)
   call mpi_type_commit(ftype,ierr)
   call mpi_file_set_view(f_handle,offset,mpi_double_precision,ftype,'native',mpi_info_null,ierr)
-  call mpi_file_read_all(f_handle,in,p_size(1)*p_size(2)*p_size(3),mpi_double_precision,mpi_status_ignore,ierr)
+  !call mpi_file_read_all(f_handle,in,p_size(1)*p_size(2)*p_size(3),mpi_double_precision,mpi_status_ignore,ierr)
+  call mpi_file_read(f_handle,in,p_size(1)*p_size(2)*p_size(3),mpi_double_precision,mpi_status_ignore,ierr)
   call mpi_file_close(f_handle,ierr)
   v(1:nx,1+halo_ext:piX%shape(2)-halo_ext,1+halo_ext:piX%shape(3)-halo_ext)=in !<- read only the inner parts (no halo) u has halos; in no halos
 endif
 
 if (fieldn .eq. 3) then
-  write(namefile,'(a,i8.8,a)') './input/w.dat'
+  namefile='./input/w.dat'
   call mpi_file_open(MPI_COMM_WORLD,namefile,mpi_mode_rdonly,mpi_info_null,f_handle,ierr)
   call mpi_type_create_subarray(3,g_size,p_size,fstart,mpi_order_fortran,mpi_double_precision,ftype,ierr)
   call mpi_type_commit(ftype,ierr)
   call mpi_file_set_view(f_handle,offset,mpi_double_precision,ftype,'native',mpi_info_null,ierr)
-  call mpi_file_read_all(f_handle,in,p_size(1)*p_size(2)*p_size(3),mpi_double_precision,mpi_status_ignore,ierr)
+  !call mpi_file_read_all(f_handle,in,p_size(1)*p_size(2)*p_size(3),mpi_double_precision,mpi_status_ignore,ierr)
+  call mpi_file_read(f_handle,in,p_size(1)*p_size(2)*p_size(3),mpi_double_precision,mpi_status_ignore,ierr)
   call mpi_file_close(f_handle,ierr)
   w(1:nx,1+halo_ext:piX%shape(2)-halo_ext,1+halo_ext:piX%shape(3)-halo_ext)=in !<- read only the inner parts (no halo) u has halos; in no halos
 endif
 
 if (fieldn .eq. 4) then
-  write(namefile,'(a,i8.8,a)') './input/p.dat'
+  namefile='./input/p.dat'
   call mpi_file_open(MPI_COMM_WORLD,namefile,mpi_mode_rdonly,mpi_info_null,f_handle,ierr)
   call mpi_type_create_subarray(3,g_size,p_size,fstart,mpi_order_fortran,mpi_double_precision,ftype,ierr)
   call mpi_type_commit(ftype,ierr)
   call mpi_file_set_view(f_handle,offset,mpi_double_precision,ftype,'native',mpi_info_null,ierr)
-  call mpi_file_read_all(f_handle,in,p_size(1)*p_size(2)*p_size(3),mpi_double_precision,mpi_status_ignore,ierr)
+  !call mpi_file_read_all(f_handle,in,p_size(1)*p_size(2)*p_size(3),mpi_double_precision,mpi_status_ignore,ierr)
+  call mpi_file_read(f_handle,in,p_size(1)*p_size(2)*p_size(3),mpi_double_precision,mpi_status_ignore,ierr)
   call mpi_file_close(f_handle,ierr)
   p(1:nx,1+halo_ext:piX%shape(2)-halo_ext,1+halo_ext:piX%shape(3)-halo_ext)=in !<- read only the inner parts (no halo) u has halos; in no halos
 endif
 
 if (fieldn .eq. 5) then
-  write(namefile,'(a,i8.8,a)') './input/phi.dat'
+  namefile='./input/phi.dat'
   call mpi_file_open(MPI_COMM_WORLD,namefile,mpi_mode_rdonly,mpi_info_null,f_handle,ierr)
   call mpi_type_create_subarray(3,g_size,p_size,fstart,mpi_order_fortran,mpi_double_precision,ftype,ierr)
   call mpi_type_commit(ftype,ierr)
   call mpi_file_set_view(f_handle,offset,mpi_double_precision,ftype,'native',mpi_info_null,ierr)
-  call mpi_file_read_all(f_handle,in,p_size(1)*p_size(2)*p_size(3),mpi_double_precision,mpi_status_ignore,ierr)
+  !call mpi_file_read_all(f_handle,in,p_size(1)*p_size(2)*p_size(3),mpi_double_precision,mpi_status_ignore,ierr)
+  call mpi_file_read(f_handle,in,p_size(1)*p_size(2)*p_size(3),mpi_double_precision,mpi_status_ignore,ierr)
   call mpi_file_close(f_handle,ierr)
-  p(1:nx,1+halo_ext:piX%shape(2)-halo_ext,1+halo_ext:piX%shape(3)-halo_ext)=in !<- read only the inner parts (no halo) u has halos; in no halos
+  phi(1:nx,1+halo_ext:piX%shape(2)-halo_ext,1+halo_ext:piX%shape(3)-halo_ext)=in !<- read only the inner parts (no halo) u has halos; in no halos
 endif
 
 deallocate(in)
@@ -237,7 +242,7 @@ double precision, allocatable :: in(:,:,:)
 ! fieldn=5 means phi
 
 ! define basic quantities to be used later (gloabl and pencil size)
-g_size=[nx, nx, nx] ! global size
+g_size=[nx, ny, nz] ! global size
 p_size=[piX%shape(1), piX%shape(2)-2*halo_ext, piX%shape(3)-2*halo_ext] !<- pencil has no halo along x
 fstart=[piX%lo(1)-1,piX%lo(2)-1,piX%lo(3)-1] !<- MPI is in C and index start from 0 (not 1)
 ! for debug
@@ -254,7 +259,8 @@ if (fieldn .eq. 1) then
   call mpi_type_create_subarray(3,g_size,p_size,fstart,mpi_order_fortran,mpi_double_precision,ftype,ierr)
   call mpi_type_commit(ftype,ierr)
   call mpi_file_set_view(f_handle,offset,mpi_double_precision,ftype,'native',mpi_info_null,ierr)
-  call mpi_file_read_all(f_handle,in,p_size(1)*p_size(2)*p_size(3),mpi_double_precision,mpi_status_ignore,ierr)
+  !call mpi_file_read_all(f_handle,in,p_size(1)*p_size(2)*p_size(3),mpi_double_precision,mpi_status_ignore,ierr)
+  call mpi_file_read(f_handle,in,p_size(1)*p_size(2)*p_size(3),mpi_double_precision,mpi_status_ignore,ierr)
   call mpi_file_close(f_handle,ierr)
   u(1:nx,1+halo_ext:piX%shape(2)-halo_ext,1+halo_ext:piX%shape(3)-halo_ext)=in !<- read only the inner parts (no halo) u has halos; in no halos
 endif
@@ -265,7 +271,8 @@ if (fieldn .eq. 2) then
   call mpi_type_create_subarray(3,g_size,p_size,fstart,mpi_order_fortran,mpi_double_precision,ftype,ierr)
   call mpi_type_commit(ftype,ierr)
   call mpi_file_set_view(f_handle,offset,mpi_double_precision,ftype,'native',mpi_info_null,ierr)
-  call mpi_file_read_all(f_handle,in,p_size(1)*p_size(2)*p_size(3),mpi_double_precision,mpi_status_ignore,ierr)
+  !call mpi_file_read_all(f_handle,in,p_size(1)*p_size(2)*p_size(3),mpi_double_precision,mpi_status_ignore,ierr)
+  call mpi_file_read(f_handle,in,p_size(1)*p_size(2)*p_size(3),mpi_double_precision,mpi_status_ignore,ierr)
   call mpi_file_close(f_handle,ierr)
   v(1:nx,1+halo_ext:piX%shape(2)-halo_ext,1+halo_ext:piX%shape(3)-halo_ext)=in !<- read only the inner parts (no halo) u has halos; in no halos
 endif
@@ -276,7 +283,8 @@ if (fieldn .eq. 3) then
   call mpi_type_create_subarray(3,g_size,p_size,fstart,mpi_order_fortran,mpi_double_precision,ftype,ierr)
   call mpi_type_commit(ftype,ierr)
   call mpi_file_set_view(f_handle,offset,mpi_double_precision,ftype,'native',mpi_info_null,ierr)
-  call mpi_file_read_all(f_handle,in,p_size(1)*p_size(2)*p_size(3),mpi_double_precision,mpi_status_ignore,ierr)
+  !call mpi_file_read_all(f_handle,in,p_size(1)*p_size(2)*p_size(3),mpi_double_precision,mpi_status_ignore,ierr)
+  call mpi_file_read(f_handle,in,p_size(1)*p_size(2)*p_size(3),mpi_double_precision,mpi_status_ignore,ierr)
   call mpi_file_close(f_handle,ierr)
   w(1:nx,1+halo_ext:piX%shape(2)-halo_ext,1+halo_ext:piX%shape(3)-halo_ext)=in !<- read only the inner parts (no halo) u has halos; in no halos
 endif
@@ -287,7 +295,8 @@ if (fieldn .eq. 4) then
   call mpi_type_create_subarray(3,g_size,p_size,fstart,mpi_order_fortran,mpi_double_precision,ftype,ierr)
   call mpi_type_commit(ftype,ierr)
   call mpi_file_set_view(f_handle,offset,mpi_double_precision,ftype,'native',mpi_info_null,ierr)
-  call mpi_file_read_all(f_handle,in,p_size(1)*p_size(2)*p_size(3),mpi_double_precision,mpi_status_ignore,ierr)
+  !call mpi_file_read_all(f_handle,in,p_size(1)*p_size(2)*p_size(3),mpi_double_precision,mpi_status_ignore,ierr)
+  call mpi_file_read(f_handle,in,p_size(1)*p_size(2)*p_size(3),mpi_double_precision,mpi_status_ignore,ierr)
   call mpi_file_close(f_handle,ierr)
   p(1:nx,1+halo_ext:piX%shape(2)-halo_ext,1+halo_ext:piX%shape(3)-halo_ext)=in !<- read only the inner parts (no halo) u has halos; in no halos
 endif
@@ -298,9 +307,10 @@ if (fieldn .eq. 5) then
   call mpi_type_create_subarray(3,g_size,p_size,fstart,mpi_order_fortran,mpi_double_precision,ftype,ierr)
   call mpi_type_commit(ftype,ierr)
   call mpi_file_set_view(f_handle,offset,mpi_double_precision,ftype,'native',mpi_info_null,ierr)
-  call mpi_file_read_all(f_handle,in,p_size(1)*p_size(2)*p_size(3),mpi_double_precision,mpi_status_ignore,ierr)
+  !call mpi_file_read_all(f_handle,in,p_size(1)*p_size(2)*p_size(3),mpi_double_precision,mpi_status_ignore,ierr)
+  call mpi_file_read(f_handle,in,p_size(1)*p_size(2)*p_size(3),mpi_double_precision,mpi_status_ignore,ierr)
   call mpi_file_close(f_handle,ierr)
-  p(1:nx,1+halo_ext:piX%shape(2)-halo_ext,1+halo_ext:piX%shape(3)-halo_ext)=in !<- read only the inner parts (no halo) u has halos; in no halos
+  phi(1:nx,1+halo_ext:piX%shape(2)-halo_ext,1+halo_ext:piX%shape(3)-halo_ext)=in !<- read only the inner parts (no halo) u has halos; in no halos
 endif
 
 deallocate(in)

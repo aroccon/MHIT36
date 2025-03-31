@@ -25,7 +25,7 @@ integer :: status
 real(8), allocatable :: x(:), kx(:)
 integer :: i,j,k,il,jl,kl,ig,jg,kg,t
 integer :: im,ip,jm,jp,km,kp,last
-integer, parameter :: Mx = 1, My = 0, Mz = 0
+!integer, parameter :: Mx = 1, My = 0, Mz = 0
 real(8), device, allocatable :: kx_d(:)
 ! working arrays
 complex(8), allocatable :: psi(:), ua(:,:,:)
@@ -241,7 +241,7 @@ if (rank.eq.0) write(*,*) "Initialize velocity field (fresh start)"
       enddo
    endif
    if (inflow .eq. 1) then
-   if (rank.eq.0)  write(*,*) "Initialize frow data"
+   if (rank.eq.0)  write(*,*) "Initialize from data"
          call readfield(1)
          call readfield(2)
          call readfield(3)
@@ -273,7 +273,7 @@ CHECK_CUDECOMP_EXIT(cudecompUpdateHalosX(handle, grid_desc, w, work_halo_d, CUDE
 #if phiflag == 1
 if (restart .eq. 0) then
 if (rank.eq.0) write(*,*) 'Initialize phase field (fresh start)'
-   if (inflow .eq. 0) then
+   if (inphi .eq. 0) then
    if (rank.eq.0) write(*,*) 'Spherical drop'
       do k = 1+halo_ext, piX%shape(3)-halo_ext
       kg = piX%lo(3) + k - 1 
@@ -286,7 +286,7 @@ if (rank.eq.0) write(*,*) 'Initialize phase field (fresh start)'
         enddo
     enddo
    endif
-   if (inflow .eq. 1) then
+   if (inphi .eq. 1) then
       if (rank.eq.0)  write(*,*) "Initialize phase-field from data"
       call readfield(5)
    endif
