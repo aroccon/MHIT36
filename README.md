@@ -29,8 +29,7 @@ Porting of MHIT36 to multi-GPU using cuDecomp.
 - Drop oscillation validation ❌
 - Full code scaling ✅
 - MPI writing (no halo)  ✅
-- MPI reading (no halo) (to be tested)
-- Serial reading (to avoid issue with Leonardo) ❌
+- MPI reading (no halo)  ✅
 - Courant number check (MPI reduction) ✅ !only from rank 0? enough?
 - MPI I/O with different configurations (color by rank), exstensive check fo this part. ✅
 - Move from Euler to AB2 as in MHIT36  ✅
