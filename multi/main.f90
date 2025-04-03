@@ -444,7 +444,7 @@ do t=tstart,tfin
 
    ! Compute sharpening term
    !$acc kernels
-   gamma=1.d0*umax
+   gamma=1.d0*gumax
    do k=1+halo_ext, piX%shape(3)-halo_ext
       do j=1+halo_ext, piX%shape(2)-halo_ext
             do i=1,nx
@@ -680,13 +680,6 @@ do t=tstart,tfin
    rhsw_o=rhsw
    !$acc end kernels
 
-   uc=maxval(ustar)
-   vc=maxval(vstar)
-   wc=maxval(wstar)
-   umax=max(wc,max(uc,vc))
-   !umax is for rank, do a MPI reduction?
-   !write(*,*) "Star max ",rank,umax
-
    ! 5.3 update halos (y and z directions), required to then compute the RHS of Poisson equation because of staggered grid
    !$acc host_data use_device(ustar)
    CHECK_CUDECOMP_EXIT(cudecompUpdateHalosX(handle, grid_desc, ustar, work_halo_d, CUDECOMP_DOUBLE, piX%halo_extents, halo_periods, 2))
@@ -715,10 +708,9 @@ do t=tstart,tfin
    !########################################################################################################################################
    ! START STEP 6: POISSON SOLVER FOR PRESSURE
    !########################################################################################################################################
-   ! initialize phi and analytical solution
-   ! for the moment keep it similar to the cuDecomp example, can be optimized in the future 
+   ! initialize rhs and analytical solution
    ! 6.1 Compute rhs of Poisson equation div*ustar: divergence at the cell center 
-   ! I've done the halo updates so to compute the divergence at the pencil border i have the ustar from the halo
+   ! I've done the halo updates so to compute the divergence at the pencil border i have the *star from the halo
    !$acc kernels
    do k=1+halo_ext, piX%shape(3)-halo_ext
       do j=1+halo_ext, piX%shape(2)-halo_ext
@@ -743,38 +735,13 @@ do t=tstart,tfin
          !jg = piX%lo(2) + jl - 1 
          do i = 1, piX%shape(1)
             rhsp_complex(i,jl,kl) = cmplx(rhsp(i,jl,kl),0.0) !<- use this once solver is ok
-            ! For Poisson testing (knwon solutions)
-            ! rhsp_complex(i,jl,kl) = cmplx(sin(Mx*x(i)),0.0) 
+            !For Poisson testing (knwon solutions)
+            !rhsp_complex(i,jl,kl) = cmplx(sin(Mx*x(i)),0.0) 
             !rhsp_complex(i,jl,kl) = cmplx(sin(Mx*x(i))*sin(My*x(jg))*sin(Mz*x(kg)),0.0)  ! RHS of Poisson equation
          enddo
       enddo
    enddo
    !$acc end kernels
-
-   !!move these arrays into the device pointer to feed the Poisson solver
-   !!$acc kernels
-   !do kl = 1, pix%shape(3)
-      !kg = piX%lo(3) + kl - 1 
-   !   do jl = 1, pix%shape(2)
-         !jg = piX%lo(2) + jl - 1 
-   !      do i = 1, pix%shape(1)
-   !         psi3(i,jl,kl) = rhsp_complex(i,jl,kl)  ! RHS of Poisson equation is psi3 (pointer to psi and then copied into the GPU)
-   !         !phi3(i,jl,kl) = 
-   !         !ua(i,jl,kl) = -psi3(i,jl,kl)/(Mx**2 + My**2 + Mz**2) ! Solution of Poisson equation
-   !      enddo
-   !   enddo
-   !enddo
-   !!$acc end kernels
-   !end block
-
-   ! H2D transfer using CUDA
-   !psi_d = psi
-
-   ! input rhs 
-   ! write(namefile,'(a,i3.3,a)') 'rhs_',rank,'.dat'
-   ! open(unit=55,file=namefile,form='unformatted',position='append',access='stream',status='new')
-   ! write(55) real(psi, KIND=8)
-   ! close(55)
 
    ! do the FFT3D forward 
    ! psi(x,y,z) -> psi(kx,y,z)
@@ -884,21 +851,9 @@ do t=tstart,tfin
    !write(*,"(' [', i0, '] Max Error: ', e12.6)") rank, maxErr
    end block
 
-   ! For debug
-   ! output solution in a file
-   ! write(namefile,'(a,i3.3,a)') 'p_',rank,'.dat'
-   ! open(unit=55,file=namefile,form='unformatted',position='append',access='stream',status='new')
-   ! write(55) p
-   ! close(55)
-
    !########################################################################################################################################
    ! END STEP 7: POISSON SOLVER FOR PRESSURE
    !########################################################################################################################################
-
-
-
-
-
 
 
 
@@ -946,28 +901,22 @@ do t=tstart,tfin
    enddo
    !$acc end kernels 
 
+   ! Divide by total number of points in the pencil
    umean=umean/nx/(piX%shape(2)-2*halo_ext)/(piX%shape(3)-2*halo_ext)
    vmean=vmean/nx/(piX%shape(2)-2*halo_ext)/(piX%shape(3)-2*halo_ext)
    wmean=wmean/nx/(piX%shape(2)-2*halo_ext)/(piX%shape(3)-2*halo_ext)
-   !write(*,*) "rank,umean", rank, umean
-   !write(*,*) "rank,umean", rank, vmean
-   !write(*,*) "rank,umean", rank, wmean
 
-   ! Find global mean (MPI_SUM and then divide by ranks)
+   ! Find global mean (MPI_SUM and then divide by number of ranks)
    call MPI_Allreduce(umean,gumean,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD, ierr)
    call MPI_Allreduce(vmean,gvmean,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD, ierr)
    call MPI_Allreduce(wmean,gwmean,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD, ierr)
 
-   !write(*,*) "rank,gumean", rank, gumean/ranks
-   !write(*,*) "rank,gvmean", rank, gvmean/ranks
-   !write(*,*) "rank,gwmean", rank, gwmean/ranks
-
+   ! remove mean value
    !$acc kernels 
    u=u-(gumean/ranks)
    v=v-(gvmean/ranks)
    w=w-(gwmean/ranks)
    !$acc end kernels 
-
 
    ! 8.3 update halos (y and z directions), required to then compute the RHS of Poisson equation because of staggered grid
    !$acc host_data use_device(u)
@@ -983,46 +932,23 @@ do t=tstart,tfin
    CHECK_CUDECOMP_EXIT(cudecompUpdateHalosX(handle, grid_desc, w, work_halo_d, CUDECOMP_DOUBLE, piX%halo_extents, halo_periods, 3))
    !$acc end host_data 
 
-
-   ! check on velocity field (also used to compute gamma at first iteration)
+   ! find local maximum velocity
    uc=maxval(u)
    vc=maxval(v)
    wc=maxval(w)
    umax=max(wc,max(uc,vc))
-   cou=umax*dt*dxi
-   ! get max(cou) among all MPI tasks
-   ! write(*,*) "Rank + Courant number: ",rank,cou
-   call MPI_Reduce(cou,gcou,1,MPI_DOUBLE_PRECISION,MPI_MAX,0,MPI_COMM_WORLD, ierr)
-   if (rank.eq.0) write(*,*) "CFL (max among tasks)", gcou
+   call MPI_Allreduce(umax,gumax,1,MPI_DOUBLE_PRECISION,MPI_MAX,MPI_COMM_WORLD, ierr)
+   cou=gumax*dt*dxi
+   if (rank.eq.0) then
+      write(*,*) "CFL (max among tasks)", cou
+      if (cou .gt. 7) stop "Unstable -> stop, stop, stop"
+   endif
 
    call cpu_time(timef)
    if (rank.eq.0) print '(" Time elapsed = ",f6.1," ms")',1000*(timef-times)
-
-   ! Check divergence (can be skipped in production)
-   !!$acc kernels 
-   !do k=1+halo_ext, piX%shape(3)-halo_ext
-   !   do j=1+halo_ext, piX%shape(2)-halo_ext
-   !       do i=1,nx
-   !         ip=i+1
-   !         jp=j+1
-   !         kp=k+1
-   !         if (ip .gt. nx) ip=1
-   !         div(i,j,k) = dxi*(u(ip,j,k)-u(i,j,k) + v(i,jp,k)-v(i,j,k) + w(i,j,kp)-w(i,j,k))
-   !      enddo
-   !   enddo
-   ! enddo
-   ! !$acc end kernels
-   ! cou=maxval(div)
-   ! write(*,*) "Rank + Div. max: ",rank,cou
-   
    !########################################################################################################################################
    ! END STEP 8: VELOCITY CORRECTION  
    !########################################################################################################################################
-
-
-
-
-
 
 
 

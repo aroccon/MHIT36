@@ -44,8 +44,8 @@ module velocity
    complex(8), allocatable :: rhsp_complex(:,:,:)
    double precision, allocatable :: rhsp(:,:,:), p(:,:,:)
    double precision, allocatable :: div(:,:,:)
-   double precision :: uc,vc,wc,umax,cou,gcou,alpha,beta
-   double precision :: h11,h12,h13,h21,h22,h23,h31,h32,h33
+   double precision :: uc, vc, wc, umax, gumax=1.0d0, cou, alpha, beta
+   double precision :: h11, h12, h13, h21, h22, h23, h31, h32, h33
    double precision :: umean, vmean, wmean, gumean, gvmean, gwmean
 end module velocity
 
