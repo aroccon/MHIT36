@@ -54,7 +54,7 @@ ierr = cudaSetDevice(localRank) !assign GPU to MPI rank
 call readinput
 
 ! hard coded, then from input
-pr = 4
+pr = 16
 pc = 1
 halo_ext=1
 comm_backend = CUDECOMP_TRANSPOSE_COMM_MPI_P2P
@@ -426,7 +426,7 @@ do t=tstart,tfin
    CHECK_CUDECOMP_EXIT(cudecompUpdateHalosX(handle, grid_desc, normz, work_halo_d, CUDECOMP_DOUBLE, piX%halo_extents, halo_periods, 3))
    !$acc end host_data 
 
-   ! Step 2: Compute normals (1.e-16 is a numerical tolerance)
+   ! Step 2: Compute normals (1.e-16 is a numerical tollerance to avodi 0/0)
    !$acc kernels
    do k=1, piX%shape(3)
       do j=1, piX%shape(2)
@@ -466,14 +466,15 @@ do t=tstart,tfin
 
    ! 4.2 Get phi at n+1 
    !$acc kernels
-    do k=1,nx
-        do j=1,nx
+   do k=1+halo_ext, piX%shape(3)-halo_ext
+      do j=1+halo_ext, piX%shape(2)-halo_ext
             do i=1,nx
                 phi(i,j,k) = phi(i,j,k) + dt*rhsphi(i,j,k)
             enddo
         enddo
     enddo
    !$acc end kernels
+   
    ! 4.3 Call halo exchnages along Y and Z for phi 
    !$acc host_data use_device(phi)
    CHECK_CUDECOMP_EXIT(cudecompUpdateHalosX(handle, grid_desc, phi, work_halo_d, CUDECOMP_DOUBLE, piX%halo_extents, halo_periods, 2))
@@ -941,7 +942,7 @@ do t=tstart,tfin
    cou=gumax*dt*dxi
    if (rank.eq.0) then
       write(*,*) "CFL (max among tasks)", cou
-      if (cou .gt. 7) stop "Unstable -> stop, stop, stop"
+      if (cou .gt. 7) stop
    endif
 
    call cpu_time(timef)
