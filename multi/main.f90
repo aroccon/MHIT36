@@ -117,7 +117,6 @@ nElemZ = piZ%size
 CHECK_CUDECOMP_EXIT(cudecompGetTransposeWorkspaceSize(handle, grid_desc, nElemWork))
 CHECK_CUDECOMP_EXIT(cudecompGetHaloWorkspaceSize(handle, grid_desc, 1, halo, nElemWork_halo))
 
-
 ! show the order 1=x, 2=y, 3=z
 ! x-pencils are x,y,z
 ! y-pencils are y,z,x
@@ -130,7 +129,7 @@ CHECK_CUDECOMP_EXIT(cudecompGetHaloWorkspaceSize(handle, grid_desc, 1, halo, nEl
 ! endif
 
 ! CUFFT initialization
-! Create plans (forward and backward are the same!)
+! Create plans (forward and backward are the same because is Z2Z!)
 batchSize = piX%shape(2)*piX%shape(3) !<- number of FFT (from x-pencil dimension)
 status = cufftPlan1D(planX, nx, CUFFT_Z2Z, batchSize)
 if (status /= CUFFT_SUCCESS) write(*,*) rank, ': Error in creating X plan'
@@ -162,8 +161,6 @@ allocate(kx_d, source=kx)
 !########################################################################################################################################
 ! 1. INITIALIZATION AND cuDECOMP AUTOTUNING : END
 !########################################################################################################################################
-
-
 
 
 
@@ -211,19 +208,11 @@ CHECK_CUDECOMP_EXIT(cudecompMalloc(handle, grid_desc, work_halo_d, nElemWork_hal
 
 
 
-
-
-
-
-
-
-
 !########################################################################################################################################
 ! START STEP 3: FLOW AND PHASE FIELD INIT
 !########################################################################################################################################
 ! 3.1 Read/initialize from data without halo grid points (avoid out-of-bound if reading usin MPI I/O)
 ! 3.2 Call halo exchnages along Y and Z for u,v,w and phi
-
 if (restart .eq. 0) then !fresh start Taylor Green or read from file in init folder
 if (rank.eq.0) write(*,*) "Initialize velocity field (fresh start)"
    if (inflow .eq. 0) then
@@ -267,7 +256,6 @@ CHECK_CUDECOMP_EXIT(cudecompUpdateHalosX(handle, grid_desc, v, work_halo_d, CUDE
 CHECK_CUDECOMP_EXIT(cudecompUpdateHalosX(handle, grid_desc, w, work_halo_d, CUDECOMP_DOUBLE, piX%halo_extents, halo_periods, 2))
 CHECK_CUDECOMP_EXIT(cudecompUpdateHalosX(handle, grid_desc, w, work_halo_d, CUDECOMP_DOUBLE, piX%halo_extents, halo_periods, 3))
 !$acc end host_data 
-
 
 ! initialize phase-field
 #if phiflag == 1
@@ -326,12 +314,8 @@ endif
 
 
 
-
-
-
-
 ! ########################################################################################################################################
-! START TEMPORAL LOOP: STEP 4 to 8 REPEATED AT EVERY TIME STEP
+! START TEMPORAL LOOP: STEP 4 to 9 REPEATED AT EVERY TIME STEP
 ! ########################################################################################################################################
 ! First step use Euler
 alpha=1.0d0
@@ -383,8 +367,8 @@ do t=tstart,tfin
                if (ip .gt. nx) ip=1
                if (im .lt. 1) im=nx
                rhsphi(i,j,k)=rhsphi(i,j,k)+gamma*(eps*(phi(ip,j,k)-2.d0*phi(i,j,k)+phi(im,j,k))*ddxi + &
-                                                    eps*(phi(i,jp,k)-2.d0*phi(i,j,k)+phi(i,jm,k))*ddxi + &         
-                                                    eps*(phi(i,j,kp)-2.d0*phi(i,j,k)+phi(i,j,km))*ddxi)
+                                                  eps*(phi(i,jp,k)-2.d0*phi(i,j,k)+phi(i,jm,k))*ddxi + &         
+                                                  eps*(phi(i,j,kp)-2.d0*phi(i,j,k)+phi(i,j,km))*ddxi)
             enddo
         enddo
    enddo
@@ -440,8 +424,6 @@ do t=tstart,tfin
    enddo
    !$acc end kernels
 
-   !write(*,*) "umax", umax
-
    ! Compute sharpening term
    !$acc kernels
    gamma=1.d0*gumax
@@ -474,7 +456,7 @@ do t=tstart,tfin
         enddo
     enddo
    !$acc end kernels
-   
+
    ! 4.3 Call halo exchnages along Y and Z for phi 
    !$acc host_data use_device(phi)
    CHECK_CUDECOMP_EXIT(cudecompUpdateHalosX(handle, grid_desc, phi, work_halo_d, CUDECOMP_DOUBLE, piX%halo_extents, halo_periods, 2))
@@ -484,11 +466,6 @@ do t=tstart,tfin
    !########################################################################################################################################
    ! END STEP 4: PHASE-FIELD SOLVER (EXPLICIT)
    !########################################################################################################################################
-
-
-
-
-
 
 
 
@@ -958,7 +935,7 @@ do t=tstart,tfin
    ! START STEP 9: OUTPUT FIELDS 
    ! ########################################################################################################################################
    if (mod(t,dump) .eq. 0) then
-      write(*,*) "Saving output files"
+      if (rank .eq. 0) write(*,*) "Saving output files"
           ! write velocity and pressure fiels (1-4)
          call writefield(t,1)
          call writefield(t,2)
@@ -980,6 +957,7 @@ enddo
 deallocate(u,v,w)
 deallocate(rhsu,rhsv,rhsw)
 deallocate(rhsu_o,rhsv_o,rhsw_o)
+deallocate(phi,rhsphi,normx,normy,normz)
 
 call mpi_finalize(ierr)
 
