@@ -7,8 +7,7 @@ module param
     double precision :: dt,mu,rho !flow parameters
     integer :: inflow, inphi
     double precision :: f1,f2,f3,k0 ! forcing parameters
-    double precision :: radius, sigma, epsr, eps, pos, epsi, enum ! phase-field parameters
-    double precision :: phiaux ! time integration: Euler/AB2
+    double precision :: radius, sigma, epsr, eps, pos, val, epsi, enum ! phase-field parameters
     double precision :: times,timef
 end module param
 

@@ -40,6 +40,7 @@ ddxi=1.d0/dx/dx
 rhoi=1.d0/rho
 eps=epsr*dx
 epsi=1.d0/eps
+enum=1.e-16
 
 if (rank .eq. 0) then
     !enable/disable for debug check parameters
@@ -62,6 +63,7 @@ if (rank .eq. 0) then
     write(*,*) "Radius  ", radius
     write(*,*) "Sigma   ", sigma
     write(*,*) "Eps     ", eps
+    write(*,*) "Epsi    ", epsi
     write(*,*) "Lx      ", lx
     write(*,*) "dx", dx
     write(*,*) "dxi", dxi

@@ -321,7 +321,9 @@ endif
 ! First step use Euler
 alpha=1.0d0
 beta=0.0d0
+gumax=1.d0
 tstart=tstart+1
+gamma=1.d0*gumax
 ! Start temporal loop
 do t=tstart,tfin
 
@@ -377,11 +379,11 @@ do t=tstart,tfin
 
    ! compute distance function psi (used to compute normals)
    !$acc kernels
-   do k=1,nx
-      do j=1,nx
+   do k=1, piX%shape(3)
+      do j=1, piX%shape(2)
          do i=1,nx
-            phiaux = min(phi(i,j,k),1.0d0) ! avoid machine precision overshoots in phi that leads to problem with log
-            psidi(i,j,k) = eps*log((phiaux+enum)/(1.d0-phiaux+enum))
+            val = min(phi(i,j,k),1.0d0) ! avoid machine precision overshoots in phi that leads to problem with log
+            psidi(i,j,k) = eps*log((val+enum)/(1.d0-val+enum))
          enddo
       enddo
    enddo
@@ -439,7 +441,6 @@ do t=tstart,tfin
 
    ! Compute sharpening term
    !$acc kernels
-   gamma=1.d0*gumax
    do k=1+halo_ext, piX%shape(3)-halo_ext
       do j=1+halo_ext, piX%shape(2)-halo_ext
             do i=1,nx
@@ -456,9 +457,9 @@ do t=tstart,tfin
                !                                    ((phi(i,jp,k)**2d0-phi(i,jp,k))*normy(i,jp,k)-(phi(i,jm,k)**2d0-phi(i,jm,k))*normy(i,jm,k))*0.5d0*dxi + &
                !                                    ((phi(i,j,kp)**2d0-phi(i,j,kp))*normz(i,j,kp)-(phi(i,j,km)**2d0-phi(i,j,km))*normz(i,j,km))*0.5d0*dxi)
                ! NEW ACDI
-               rhsphi(i,j,k)=rhsphi(i,j,k)-gamma*((0.25d0*(1.d0-(tanh(0.5d0*psidi(ip,j,k)*epsi))**2)*normx(ip,j,k)- 0.25d0*(1.d0-(tanh(0.5d0*psidi(im,j,k)*epsi))**2)*normx(im,j,k))*0.5*dxi +&
-                                                  (0.25d0*(1.d0-(tanh(0.5d0*psidi(i,jp,k)*epsi))**2)*normy(i,jp,k)- 0.25d0*(1.d0-(tanh(0.5d0*psidi(i,jm,k)*epsi))**2)*normy(i,jm,k))*0.5*dxi +&
-                                                  (0.25d0*(1.d0-(tanh(0.5d0*psidi(i,j,kp)*epsi))**2)*normz(i,j,kp)- 0.25d0*(1.d0-(tanh(0.5d0*psidi(i,j,km)*epsi))**2)*normz(i,j,km))*0.5*dxi)
+               !rhsphi(i,j,k)=rhsphi(i,j,k)-gamma*((0.25d0*(1.d0-(tanh(0.5d0*psidi(ip,j,k)*epsi))**2)*normx(ip,j,k)- 0.25d0*(1.d0-(tanh(0.5d0*psidi(im,j,k)*epsi))**2)*normx(im,j,k))*0.5*dxi +&
+               !                                   (0.25d0*(1.d0-(tanh(0.5d0*psidi(i,jp,k)*epsi))**2)*normy(i,jp,k)- 0.25d0*(1.d0-(tanh(0.5d0*psidi(i,jm,k)*epsi))**2)*normy(i,jm,k))*0.5*dxi +&
+               !                                   (0.25d0*(1.d0-(tanh(0.5d0*psidi(i,j,kp)*epsi))**2)*normz(i,j,kp)- 0.25d0*(1.d0-(tanh(0.5d0*psidi(i,j,km)*epsi))**2)*normz(i,j,km))*0.5*dxi)
             enddo
         enddo
     enddo
