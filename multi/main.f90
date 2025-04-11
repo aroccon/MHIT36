@@ -54,7 +54,7 @@ ierr = cudaSetDevice(localRank) !assign GPU to MPI rank
 call readinput
 
 ! hard coded, then from input
-pr = 16
+pr = 2
 pc = 1
 halo_ext=1
 comm_backend = CUDECOMP_TRANSPOSE_COMM_MPI_P2P
@@ -188,6 +188,7 @@ allocate(div(piX%shape(1),piX%shape(2),piX%shape(3)))
 !PFM variables
 #if phiflag == 1
 allocate(phi(piX%shape(1),piX%shape(2),piX%shape(3)),rhsphi(piX%shape(1),piX%shape(2),piX%shape(3)))
+allocate(psidi(piX%shape(1),piX%shape(2),piX%shape(3)))
 allocate(normx(piX%shape(1),piX%shape(2),piX%shape(3)),normy(piX%shape(1),piX%shape(2),piX%shape(3)),normz(piX%shape(1),piX%shape(2),piX%shape(3)))
 allocate(curv(nx,nx,nx),gradphix(nx,nx,nx),gradphiy(nx,nx,nx),gradphiz(nx,nx,nx))
 allocate(fxst(nx,nx,nx),fyst(nx,nx,nx),fzst(nx,nx,nx)) ! surface tension forces
@@ -380,7 +381,7 @@ do t=tstart,tfin
       do j=1,nx
          do i=1,nx
             phiaux = min(phi(i,j,k),1.0d0) ! avoid machine precision overshoots in phi that leads to problem with log
-            psi(i,j,k) = eps*log((phiaux+enum)/(1.d0-phiaxu+enum))
+            psidi(i,j,k) = eps*log((phiaux+enum)/(1.d0-phiaux+enum))
          enddo
       enddo
    enddo
@@ -400,9 +401,9 @@ do t=tstart,tfin
             km=k-1
             if (ip .gt. nx) ip=1
             if (im .lt. 1) im=nx
-            normx(i,j,k) = (phi(ip,j,k) - phi(im,j,k))
-            normy(i,j,k) = (phi(i,jp,k) - phi(i,jm,k))
-            normz(i,j,k) = (phi(i,j,kp) - phi(i,j,km)) 
+            normx(i,j,k) = (psidi(ip,j,k) - psidi(im,j,k))
+            normy(i,j,k) = (psidi(i,jp,k) - psidi(i,jm,k))
+            normz(i,j,k) = (psidi(i,j,kp) - psidi(i,j,km)) 
          enddo
       enddo
    enddo 
@@ -455,9 +456,9 @@ do t=tstart,tfin
                !                                    ((phi(i,jp,k)**2d0-phi(i,jp,k))*normy(i,jp,k)-(phi(i,jm,k)**2d0-phi(i,jm,k))*normy(i,jm,k))*0.5d0*dxi + &
                !                                    ((phi(i,j,kp)**2d0-phi(i,j,kp))*normz(i,j,kp)-(phi(i,j,km)**2d0-phi(i,j,km))*normz(i,j,km))*0.5d0*dxi)
                ! NEW ACDI
-               rhsphi(i,j,k)=rhsphi(i,j,k)-gamma*((0.25d0*(1.d0-(tanh(0.5d0*psi(ip,j,k)*epsi))**2)*normx(ip,j,k)- 0.25d0*(1.d0-(tanh(0.5d0*psi(im,j,k)*epsi))**2)*normx(im,j,k))*0.5*dxi +&
-                                                  (0.25d0*(1.d0-(tanh(0.5d0*psi(i,jp,k)*epsi))**2)*normy(i,jp,k)- 0.25d0*(1.d0-(tanh(0.5d0*psi(i,jm,k)*epsi))**2)*normy(i,jm,k))*0.5*dxi +&
-                                                  (0.25d0*(1.d0-(tanh(0.5d0*psi(i,j,kp)*epsi))**2)*normz(i,j,kp)- 0.25d0*(1.d0-(tanh(0.5d0*psi(i,j,km)*epsi))**2)*normz(i,j,km))*0.5*dxi)
+               rhsphi(i,j,k)=rhsphi(i,j,k)-gamma*((0.25d0*(1.d0-(tanh(0.5d0*psidi(ip,j,k)*epsi))**2)*normx(ip,j,k)- 0.25d0*(1.d0-(tanh(0.5d0*psidi(im,j,k)*epsi))**2)*normx(im,j,k))*0.5*dxi +&
+                                                  (0.25d0*(1.d0-(tanh(0.5d0*psidi(i,jp,k)*epsi))**2)*normy(i,jp,k)- 0.25d0*(1.d0-(tanh(0.5d0*psidi(i,jm,k)*epsi))**2)*normy(i,jm,k))*0.5*dxi +&
+                                                  (0.25d0*(1.d0-(tanh(0.5d0*psidi(i,j,kp)*epsi))**2)*normz(i,j,kp)- 0.25d0*(1.d0-(tanh(0.5d0*psidi(i,j,km)*epsi))**2)*normz(i,j,km))*0.5*dxi)
             enddo
         enddo
     enddo

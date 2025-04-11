@@ -7,7 +7,8 @@ module param
     double precision :: dt,mu,rho !flow parameters
     integer :: inflow, inphi
     double precision :: f1,f2,f3,k0 ! forcing parameters
-    double precision :: radius, sigma, epsr, eps, pos ! phase-field parameters
+    double precision :: radius, sigma, epsr, eps, pos, epsi, enum ! phase-field parameters
+    double precision :: phiaux ! time integration: Euler/AB2
     double precision :: times,timef
 end module param
 
@@ -51,7 +52,7 @@ end module velocity
 
 
 module phase
-   double precision, allocatable :: phi(:,:,:), rhsphi(:,:,:)
+   double precision, allocatable :: phi(:,:,:), rhsphi(:,:,:), psidi(:,:,:)
    double precision, allocatable :: normx(:,:,:), normy(:,:,:), normz(:,:,:)
    double precision, allocatable :: curv(:,:,:), gradphix(:,:,:), gradphiy(:,:,:), gradphiz(:,:,:)
    double precision, allocatable :: fxst(:,:,:), fyst(:,:,:), fzst(:,:,:)

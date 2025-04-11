@@ -39,6 +39,7 @@ dxi=1.d0/dx
 ddxi=1.d0/dx/dx
 rhoi=1.d0/rho
 eps=epsr*dx
+epsi=1.d0/eps
 
 if (rank .eq. 0) then
     !enable/disable for debug check parameters
