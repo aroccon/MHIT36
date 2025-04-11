@@ -21,12 +21,13 @@ Porting of MHIT36 to multi-GPU using cuDecomp.
 - Halo updates test with host_data use_device ✅
 - Flow field initialization ✅
 - Phase-field initialization ✅
+- Phase-field method (ACDI) ✅
 - Projection step implemented ✅
 - Validation of projection step ✅ (implemented, not validated)
 - Correction step ✅ (implemented, not validated)
 - Forcing ✅
-- HIT validation ❌
-- Drop oscillation validation ❌
+- HIT validation ✅
+- Drop oscillation validation ✅
 - Full code scaling ✅
 - MPI writing (no halo)  ✅
 - MPI reading (no halo)  ✅
