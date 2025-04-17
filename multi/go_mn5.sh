@@ -1,24 +1,20 @@
 #!/bin/bash
-#SBATCH --account="IscrB_SONORA"
+#SBATCH --ntasks=8  # --ntasks=8 when used two nodes
+#SBATCH --account="ehpc244"
 #SBATCH --job-name="cudec"
-#SBATCH --time=00:30:00
-#SBATCH --nodes=1      ##adjust
-#SBATCH --ntasks-per-node=4
+#SBATCH --time=00:5:00
 #SBATCH --gres=gpu:4
+#SBTACH --cpus-per-task=20
 #SBATCH --output=test.out
 #SBATCH -p boost_usr_prod
-#SBATCH --qos=boost_qos_dbg
+#SBATCH --qos=acc_debug
 #SBATCH --error=test.err
 
-module load nvhpc/24.3
-module load cuda/12.3
-module load openmpi/4.1.6--nvhpc--24.3
-#export LD_LIBRARY_PATH=/leonardo_scratch/large/userexternal/aroccon0/MHIT36_cuDecomp/cuDecomp/build/lib:$LD_LIBRARY_PATH
-#export LD_LIBRARY_PATH=/leonardo_scratch/large/userexternal/lenzenbe/RE95_256_cuDec/cuDecomp/build/lib:$LD_LIBRARY_PATH
+module load nvidia-hpc-sdk/24.3
 CURRENT_DIR="$(pwd)"
 ROOT_DIR="$(dirname "$CURRENT_DIR")/cuDecomp/build/lib"
 echo "Using directory: $ROOT_DIR"
 export LD_LIBRARY_PATH=$ROOT_DIR:$LD_LIBRARY_PATH
 
 
-mpirun -n 4 ./mhit36
+mpirun -n 8 ./mhit36
