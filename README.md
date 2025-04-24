@@ -59,20 +59,26 @@ Performance (NS only)
 * 256 x 256 x 256 | 4 x A100@Leonardo  |   44 ms/timestep
 * 512 x 512 x 512 | 4 x A100@Leonardo  |  470 ms/timestep
 * 512 x 512 x 512 | 8 x A100@Leonardo  |  200 ms/timestep
-* 512 x 512 x 512 | 8 x A100@Leonardo  |  200 ms/timestep
 * 1024 x 1024 x 1024 | 64 x A100@Leonardo | 272 ms/timestep
 * 2048 x 2048 x 2048 | 256 x A100@Leonardo | 740 ms/timestep
-
+* 128 x 128 x 128 | 4 x H100@MN5-ACC   |    7 ms/timestep
+* 256 x 256 x 256 | 4 x H100@MN5-ACC   |   40 ms/timestep
+* 512 x 512 x 512 | 4 x H100@MN5-ACC   |  450 ms/timestep
+* 512 x 512 x 512 | 8 x H100@MN5-ACC   |  172 ms/timestep
+* 1024 x 1024 x 1024 | 64 x H100@MN5-ACC  | 196 ms/timestep
+* 2048 x 2048 x 2048 | 256 x H100@MN5-ACC  | 516 ms/timestep
 
 Max resolution tested (Poisson only):
 *  768 x  768 x  768 | 2 x RTX5000@milton - 16 GB VRAM
 * 2048 x 2048 x 2048 | 32 x A100@Leonardo - 64 GB VRAm (also tested on 128/256 GPUs)
+* 2048 x 2048 x 2048 | 32 x H100@MN5-ACC  - 64 GB VRAm (also tested on 128/256 GPUs)
 
 
 # Scaling
 
-Strong scaling results obtained on Leonardo (4 x A100 64 GB x node)
-* Tested from 1 node up to 64 nodes
+Strong scaling results obtained on Leonardo (4 x A100 64 GB x node) and MN5 (4 x H100 40 GB x node)
+* Tested from 1 node up to 64 nodes (Leonardo)
+* Tested from 1 node up to 100 nodes (MN5-ACC)
 * Grid from 64 x 64 x 64 up to 2048 x 2048 x 2048
 
 ![Scal](val/scaling.png)
