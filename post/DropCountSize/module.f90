@@ -2,12 +2,12 @@ module param
  implicit none
  double precision, parameter :: pi=4.0d0*atan(1.0d0)
  double precision, parameter :: twopi=8.0d0*atan(1.0d0)
- double precision, parameter :: n3o4opi=3.0d0/(4.0d0*pi)
+ double precision, parameter :: n6opi=6.0d0/pi
  integer, parameter:: clen=300 !char length
  integer :: nx
  integer :: begin, finish, step
  character(len=clen) :: rootpath
- double precision ::dx,lx,dxtom3
+ double precision ::dx,lx
 end module param
 !*********************************************
 module flowvars

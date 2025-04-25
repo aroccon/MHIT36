@@ -29,7 +29,8 @@ subroutine calculate_deq(s_drop,nstep)
  vol=sum(dble(s_drop))
 
  ! Equivalent Diameter; twice the radius of the equivalent sphere ( Vsphere=(4/3)*pi*R^3 )
- deq=2.0d0*(n3o4opi*vol)**(1.0d0/3.0d0)
+ ! The volume has to be multiplied by dx^3. Therefore I can just multiply by dx outside.
+ deq=dx*(n6opi*vol)**(1.0d0/3.0d0)
     
  write(*,'(1x,a,E16.6)') 'Diameter',deq
  write(*,*)

@@ -7,7 +7,7 @@
 #SBATCH --account=IscrB_SONORA
 #SBATCH --partition=boost_usr_prod
 ##SBATCH --qos=boost_qos_dbg
-#SBATCH --time=03:30:00
+#SBATCH --time=05:30:00
 
 module load gcc
 # module load fftw/3.3.10--openmpi--4.1.6--gcc--12.2.0
