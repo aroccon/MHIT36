@@ -190,8 +190,8 @@ allocate(div(piX%shape(1),piX%shape(2),piX%shape(3)))
 allocate(phi(piX%shape(1),piX%shape(2),piX%shape(3)),rhsphi(piX%shape(1),piX%shape(2),piX%shape(3)))
 allocate(psidi(piX%shape(1),piX%shape(2),piX%shape(3)))
 allocate(normx(piX%shape(1),piX%shape(2),piX%shape(3)),normy(piX%shape(1),piX%shape(2),piX%shape(3)),normz(piX%shape(1),piX%shape(2),piX%shape(3)))
-allocate(chempot(nx,nx,nx),gradphix(nx,nx,nx),gradphiy(nx,nx,nx),gradphiz(nx,nx,nx))
-allocate(fxst(nx,nx,nx),fyst(nx,nx,nx),fzst(nx,nx,nx)) ! surface tension forces
+allocate(chempot(piX%shape(1),piX%shape(2),piX%shape(3)),gradphix(piX%shape(1),piX%shape(2),piX%shape(3)),gradphiy(piX%shape(1),piX%shape(2),piX%shape(3)),gradphiz(piX%shape(1),piX%shape(2),piX%shape(3)))
+allocate(fxst(piX%shape(1),piX%shape(2),piX%shape(3)),fyst(piX%shape(1),piX%shape(2),piX%shape(3)),fzst(piX%shape(1),piX%shape(2),piX%shape(3))) ! surface tension forces
 #endif
 
 ! allocate arrays for transpositions and halo exchanges 
