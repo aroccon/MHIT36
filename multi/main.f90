@@ -357,6 +357,7 @@ do t=tstart,tfin
    !$acc end kernels
 
    ! 4.1.2 Compute diffusive term 
+   gamma=1.0d0*gumax
    !$acc kernels
    do k=1+halo_ext, piX%shape(3)-halo_ext
       do j=1+halo_ext, piX%shape(2)-halo_ext

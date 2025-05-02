@@ -79,7 +79,7 @@ Phase-field introduces about 15% of overhead compared to NS only.
 
 Strong scaling results obtained on Leonardo (4 x A100 64 GB x node) and MN5 (4 x H100 40 GB x node)
 * Tested from 1 node up to 128 nodes (Leonardo)
-* Tested from 1 node up to 128 nodes (MN5-ACC)
+* Tested from 1 node up to 256 nodes (MN5-ACC)
 * Grid from 64 x 64 x 64 up to 2048 x 2048 x 2048
 * Very similar scaling for both NS and NS+ACDI
 
