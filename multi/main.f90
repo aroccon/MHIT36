@@ -35,7 +35,7 @@ character(len=40) :: namefile
 ! Code variables
 
 ! Enable or disable phase field (acceleration eneabled by default)
-#define phiflag 1
+#define phiflag 0
 
 !########################################################################################################################################
 ! 1. INITIALIZATION OF MPI AND cuDECOMP AUTOTUNING : START
