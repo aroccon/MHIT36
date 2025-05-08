@@ -10,7 +10,10 @@
 
 Multi-GPU version of MHIT36 using cuDecomp (Nvidia only)
 
-# Multi-GPU version status
+![Test](val/intro.png)
+
+
+# Check list of features implemenetd in MHIT36
 
 - Poisson solver (transposition + halo update) ✅
 - Poisson solver validation (periodic solutions) ✅
@@ -22,24 +25,15 @@ Multi-GPU version of MHIT36 using cuDecomp (Nvidia only)
 - Flow field initialization ✅
 - Phase-field initialization ✅
 - Phase-field method (ACDI) ✅
-- Projection step implemented ✅
-- Validation of projection step ✅ (implemented, not validated)
-- Correction step ✅ (implemented, not validated)
 - Forcing ✅
 - HIT validation ✅
-- Drop oscillation validation ✅
 - Full code scaling ✅
 - MPI writing (no halo)  ✅
 - MPI reading (no halo)  ✅
-- Courant number check (MPI reduction) ✅ !only from rank 0? enough?
 - MPI I/O with different configurations (color by rank), exstensive check fo this part. ✅
-- Move from Euler to AB2 as in MHIT36  ✅
-- Acceleration of some parts (not done at the moment to debug the solver) ✅
-- Check divergence of the fields ✅
-- Courant number via MPI reduction ✅
 - Umax via MPI reduction ✅
 - Surface tension forces ✅
-- Remove mean flow via all reduce ✅
+- Remove mean flow via MPI all reduce ✅
 
 # Run the code
 
