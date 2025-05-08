@@ -1,14 +1,14 @@
-# MHIT36_cuDecomp
+# MHIT36
 
 ~~~text
-███    ███ ██   ██ ██ ████████ ██████   ██████           ██████ ██    ██ ██████  ███████  ██████  ██████  ███    ███ ██████  
-████  ████ ██   ██ ██    ██         ██ ██               ██      ██    ██ ██   ██ ██      ██      ██    ██ ████  ████ ██   ██ 
-██ ████ ██ ███████ ██    ██     █████  ███████    +     ██      ██    ██ ██   ██ █████   ██      ██    ██ ██ ████ ██ ██████  
-██  ██  ██ ██   ██ ██    ██         ██ ██    ██         ██      ██    ██ ██   ██ ██      ██      ██    ██ ██  ██  ██ ██      
-██      ██ ██   ██ ██    ██    ██████   ██████           ██████  ██████  ██████  ███████  ██████  ██████  ██      ██ ██      
+███    ███ ██   ██ ██ ████████ ██████   ██████       
+████  ████ ██   ██ ██    ██         ██ ██              
+██ ████ ██ ███████ ██    ██     █████  ███████   
+██  ██  ██ ██   ██ ██    ██         ██ ██    ██     
+██      ██ ██   ██ ██    ██    ██████   ██████        
 ~~~
 
-Porting of MHIT36 to multi-GPU using cuDecomp.
+Multi-GPU version of MHIT36 using cuDecomp (Nvidia only)
 
 # Multi-GPU version status
 
@@ -88,7 +88,7 @@ Strong scaling results obtained on Leonardo (4 x A100 64 GB x node) and MN5 (4 x
 
 # Validation
 
-Benchamrk present in "W.M.VanRees,A.Leonard,D.Pullin,P.Koumoutsakos,A comparison of vortex and pseudo-spectral methods for the simulation of periodic vortical flows at high Reynolds numbers,J. Comput. Phys.2 30(8)(2011)2794–2805" and also Used in CaNS.
+Benchamrk present in "W.M.VanRees, A.Leonard, D.Pullin, P.Koumoutsakos, A comparison of vortex and pseudo-spectral methods for the simulation of periodic vortical flows at high Reynolds numbers,J. Comput. Phys.2 30(8)(2011)2794–2805" and also Used in CaNS.
 
 Time evolution of the viscous dissipation:
 
