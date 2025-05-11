@@ -1,5 +1,9 @@
 # MHIT36
 
+Code for direct numerical simulation of Navier-Stokes equation coupled with a phase-field method (ACDI) for interface description.
+
+Preprint soon available.
+
 ~~~text
 ███    ███ ██   ██ ██ ████████ ██████   ██████       
 ████  ████ ██   ██ ██    ██         ██ ██              
