@@ -17,7 +17,7 @@ Multi-GPU version of MHIT36 using cuDecomp (Nvidia only)
 ![Test](val/intro.png)
 
 
-## Check list of features implemenetd in MHIT36
+## Check list of features implemented in MHIT36
 
 - Poisson solver (transposition + halo update) ✅
 - Poisson solver validation (periodic solutions) ✅
