@@ -2,8 +2,6 @@
 
 Code for direct numerical simulation of Navier-Stokes equation coupled with a phase-field method (ACDI) for interface description.
 
-Preprint soon available.
-
 ~~~text
 ███    ███ ██   ██ ██ ████████ ██████   ██████       
 ████  ████ ██   ██ ██    ██         ██ ██              
@@ -13,6 +11,17 @@ Preprint soon available.
 ~~~
 
 Multi-GPU version of MHIT36 using cuDecomp (Nvidia only)
+
+If you use this code, please cite the following work: 
+```bibtex
+  @article{roccon2025,
+  title   = {Method for portable, scalable, and performant {GPU}-accelerated simulation of multiphase compressible flow},
+  author  = {A. Roccon, L. Enzenberger, D. Zaza and A. Soldati},
+  journal = {SSRN},
+  year    = {2025},
+  doi     = {10.2139/ssrn.5264052}
+}
+```
 
 ![Test](val/intro.png)
 
