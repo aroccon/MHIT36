@@ -15,7 +15,7 @@ Multi-GPU version of MHIT36 using cuDecomp (Nvidia only)
 If you use this code, please cite the following work: 
 ```bibtex
   @article{roccon2025,
-  title   = {Method for portable, scalable, and performant {GPU}-accelerated simulation of multiphase compressible flow},
+  title   = {MHIT36: A Phase-Field Code for Gpu Simulations of Multiphase Homogeneous Isotropic Turbulence},
   author  = {A. Roccon, L. Enzenberger, D. Zaza and A. Soldati},
   journal = {SSRN},
   year    = {2025},
