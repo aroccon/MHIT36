@@ -19,7 +19,7 @@ If you use this code, please cite the following work:
   author  = {A. Roccon, L. Enzenberger, D. Zaza and A. Soldati},
   journal = {SSRN},
   year    = {2025},
-  doi     = {10.2139/ssrn.5264052}
+  doi     = {http://dx.doi.org/10.2139/ssrn.5264052}
 }
 ```
 
