@@ -17,7 +17,7 @@ jobs:
         run: docker pull nvcr.io/nvidia/nvhpc:24.3-devel-cuda12.3-ubuntu22.04
         
       - name: Make build script executable
-        run: chmod +x ./build.sh
+        run: chmod +x ./multi/local.sh
 
       - name: Run build script
-        run: multi/local.sh
+        run: ./multi/local.sh
