@@ -16,7 +16,7 @@ If you use this code, please cite the following work:
 ```bibtex
   @article{roccon2025,
   title   = {MHIT36: A Phase-Field Code for Gpu Simulations of Multiphase Homogeneous Isotropic Turbulence},
-  author  = {A. Roccon, L. Enzenberger, D. Zaza and A. Soldati},
+  author  = {Roccon, A. and Enzenberger, L. and Zaza, D. and Soldati, A.},
   journal = {SSRN},
   year    = {2025},
   doi     = {http://dx.doi.org/10.2139/ssrn.5264052}
