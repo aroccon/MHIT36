@@ -15,9 +15,10 @@ jobs:
 
       - name: Pull NVHPC Docker Image
         run: docker pull nvcr.io/nvidia/nvhpc:24.3-devel-cuda12.3-ubuntu22.04
+        run: git clone https://github.com/NVIDIA/cuDecomp
+
         
       - name: Make build script executable
-        run: chmod +x ./multi/local.sh
+        run: chmod +x ./multi/testpush.sh
+        run: chmod +x ./make_lib_git.sh
 
-      - name: Run build script
-        run: ./multi/local.sh
