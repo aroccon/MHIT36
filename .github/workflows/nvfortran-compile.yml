@@ -1,0 +1,32 @@
+name: Compile with nvfortran
+
+on: [push, pull_request]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Install prerequisites
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y wget tar
+
+      - name: Download and install NVIDIA HPC SDK
+        run: |
+          wget https://developer.download.nvidia.com/hpc-sdk/24.3/nvhpc_2024_234_Linux_x86_64_cuda_multi.tar.gz
+          tar -xvzf nvhpc_2024_234_Linux_x86_64_cuda_multi.tar.gz
+          sudo ./nvhpc_2024_234_Linux_x86_64_cuda_multi/install -silent -accept-license -installdir /opt/nvidia/hpc_sdk
+
+      - name: Set environment variables
+        run: |
+          echo "PATH=/opt/nvidia/hpc_sdk/Linux_x86_64/2024/compilers/bin:\$PATH" >> $GITHUB_ENV
+          echo "NVHPC=/opt/nvidia/hpc_sdk" >> $GITHUB_ENV
+
+      - name: Make build script executable
+        run: chmod +x ./build.sh
+
+      - name: Run build script
+        run: multi/local.sh
