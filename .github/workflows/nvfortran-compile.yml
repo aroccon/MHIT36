@@ -14,8 +14,7 @@ jobs:
           echo "${{ secrets.NGC_API_KEY }}" | docker login nvcr.io -u '$oauthtoken' --password-stdin
 
       - name: Pull NVHPC Docker Image
-        run: |
-        docker pull nvcr.io/nvidia/nvhpc:24.3-devel-cuda_multi-ubuntu22.04
+        run: docker pull nvcr.io/nvidia/nvhpc:24.3-devel-ubuntu20.04
         
       - name: Make build script executable
         run: chmod +x ./build.sh
