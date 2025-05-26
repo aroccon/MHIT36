@@ -16,7 +16,7 @@ jobs:
 
       - name: Download and install NVIDIA HPC SDK
         run: |
-          wget https://developer.download.nvidia.com/hpc-sdk/24.3/nvhpc_2024_234_Linux_x86_64_cuda_multi.tar.gz
+          wget https://developer.download.nvidia.com/hpc-sdk/24.3/nvhpc_2024_243_Linux_x86_64_cuda_multi.tar.gz
           tar -xvzf nvhpc_2024_234_Linux_x86_64_cuda_multi.tar.gz
           sudo ./nvhpc_2024_234_Linux_x86_64_cuda_multi/install -silent -accept-license -installdir /opt/nvidia/hpc_sdk
 
