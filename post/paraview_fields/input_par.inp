@@ -1,4 +1,4 @@
-512   		    !grid
+512   		!grid
 10000           !start step
 20000           !end step
 1000            !frequency

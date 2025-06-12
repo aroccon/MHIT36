@@ -1,10 +1,13 @@
+
+#F90	= $(FC)
+
 FC	= gfortran
 LD	= $(FC)
 SWP	=
 RM	= /bin/rm -f
 MP	=
 OLEVEL	= -O3
-FOPTS	= -mcmodel=medium -fconvert=big-endian  -ffixed-line-length-140 -fno-align-commons -fbounds-check -Wall -cpp  #-std=f2008ts -g
+FOPTS	= -mcmodel=medium -fconvert=big-endian  -ffixed-line-length-140 -fno-align-commons -fbounds-check -cpp  #-std=f2008ts -g
 #FOPTS	= -align none -mcmodel medium -warn all
 FFLAGS	= $(FOPTS) $(OLEVEL)
 

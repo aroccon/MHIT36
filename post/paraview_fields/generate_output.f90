@@ -2,7 +2,7 @@ subroutine generate_output(nstep)
 
 use commondata
 
-integer :: nstep, numx, numy, numz
+integer :: nstep,numx,numy,numz
 integer :: i,k,j
 character(len=40) :: namefile
 character(len=80) :: buffer
@@ -14,7 +14,7 @@ character(len=16) :: str4
 lf=achar(10)
 
 ! fields included
-nfields=uflag+vlfag+wflag+phiflag
+nfields=uflag + vflag + wflag + phiflag
 
 !input??
 x_start=1
@@ -84,6 +84,7 @@ buffer='DATASET RECTILINEAR_GRID'//lf
  write(str1(1:8),'(i8)') nfields
  buffer='FIELD FieldData '//str1//lf
  write(66) trim(buffer)
+
 
 ! write u field
 if (uflag .eq. 1) then
