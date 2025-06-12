@@ -2,7 +2,7 @@ subroutine generate_output(nstep)
 
 use commondata
 
-integer :: nstep,nfields,numx,numy,numz
+integer :: nstep, numx, numy, numz
 integer :: i,k,j
 character(len=40) :: namefile
 character(len=80) :: buffer
@@ -14,7 +14,7 @@ character(len=16) :: str4
 lf=achar(10)
 
 ! fields included
-nfields=3
+nfields=uflag+vlfag+wflag+phiflag
 
 !input??
 x_start=1
@@ -85,41 +85,61 @@ buffer='DATASET RECTILINEAR_GRID'//lf
  buffer='FIELD FieldData '//str1//lf
  write(66) trim(buffer)
 
- ! write u field
- write(str4(1:16),'(i16)') numx*numy*numz
- buffer = 'U 1 '//str4//' float'//lf
- write(66) trim(buffer)
- do k=z_start,z_end,dnz
-  do j=y_start,y_end,dny
-   do i=x_start,x_end,dnx
-    write(66) real(u(i,j,k))
-   enddo
-  enddo
- enddo
+! write u field
+if (uflag .eq. 1) then
+    write(str4(1:16),'(i16)') numx*numy*numz
+    buffer = 'u 1 '//str4//' float'//lf
+    write(66) trim(buffer)
+    do k=z_start,z_end,dnz
+        do j=y_start,y_end,dny
+            do i=x_start,x_end,dnx
+                write(66) real(u(i,j,k))
+            enddo
+        enddo
+    enddo
+endif
 
- ! write v field
- write(str4(1:16),'(i16)') numx*numy*numz
- buffer = 'V 1 '//str4//' float'//lf
- write(66) trim(buffer)
- do k=z_start,z_end,dnz
-  do j=y_start,y_end,dny
-   do i=x_start,x_end,dnx
-    write(66) real(v(i,j,k))
-   enddo
-  enddo
- enddo
+! write v field
+if (vflag .eq. 1) then
+    write(str4(1:16),'(i16)') numx*numy*numz
+    buffer = 'v 1 '//str4//' float'//lf
+    write(66) trim(buffer)
+    do k=z_start,z_end,dnz
+        do j=y_start,y_end,dny
+            do i=x_start,x_end,dnx
+                write(66) real(v(i,j,k))
+            enddo
+        enddo
+    enddo
+endif
 
- ! write w field
- write(str4(1:16),'(i16)') numx*numy*numz
- buffer = 'W 1 '//str4//' float'//lf
- write(66) trim(buffer)
- do k=z_start,z_end,dnz
-  do j=y_start,y_end,dny
-   do i=x_start,x_end,dnx
-    write(66) real(w(i,k,j))
-   enddo
-  enddo
- enddo
+! write w field
+if (wflag .eq. 1) then
+    write(str4(1:16),'(i16)') numx*numy*numz
+    buffer = 'w 1 '//str4//' float'//lf
+    write(66) trim(buffer)
+    do k=z_start,z_end,dnz
+        do j=y_start,y_end,dny
+            do i=x_start,x_end,dnx
+                write(66) real(w(i,j,k))
+           enddo
+        enddo
+    enddo
+endif
+
+! write phi field
+if (phiflag .eq. 1) then
+    write(str4(1:16),'(i16)') numx*numy*numz
+    buffer = 'phi 1 '//str4//' float'//lf
+    write(66) trim(buffer)
+    do k=z_start,z_end,dnz
+        do j=y_start,y_end,dny
+            do i=x_start,x_end,dnx
+                write(66) real(phi(i,j,k))
+           enddo
+        enddo
+    enddo
+endif
 
 return
 end

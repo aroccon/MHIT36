@@ -7,15 +7,15 @@ logical :: check
 character(len=40) :: namefile
 
 !! read input
-open(10,file='../sc_compiled/input.f90',form='formatted')
+open(10,file='input_par.inp',form='formatted')
 read(10,*) nx
-read(10,*)
 read(10,*) nstart
 read(10,*) nend
-read(10,*)
-read(10,*)
 read(10,*) dump
-close(10)
+read(10,*) uflag
+read(10,*) vflag
+read(10,*) wflag
+read(10,*) phiflag
 
 !! overide (if there are problems)
 !nstart=0
