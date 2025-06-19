@@ -8,7 +8,7 @@ CUDECOMP_DIR = /home/milton/MHIT36_cuDecomp/cuDecomp/build/
 
 # Compiler and Linker Flags
 FFLAGS = -fast -acc -gpu=managed -Minfo=accel -Mfree -Mpreprocess -cpp -Minfo=accel -cuda  -I$(CUDECOMP_DIR)/include
-LIBS = -L$(CUDECOMP_DIR)/lib -L/usr/local/cuda/lib64 -lcudecomp_fort -lcudecomp -cudalib=cufft -lcuda
+LIBS = -L$(CUDECOMP_DIR)/lib -L/usr/local/cuda/lib64 -lcudecomp_fort -lcudecomp -cudalib=cufft -lcuda -lnvToolsExt
 
 # Source and Object Files
 OBJS = module.f90 main.f90 readinput.f90 readwrite.f90
