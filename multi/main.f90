@@ -10,6 +10,7 @@ use phase
 use param
 use mpivar
 use cudecompvar
+use nvtx
 
 
 implicit none
@@ -35,7 +36,7 @@ character(len=40) :: namefile
 ! Code variables
 
 ! Enable or disable phase field (acceleration eneabled by default)
-#define phiflag 0
+#define phiflag 1
 
 !########################################################################################################################################
 ! 1. INITIALIZATION OF MPI AND cuDECOMP AUTOTUNING : START
@@ -330,6 +331,7 @@ do t=tstart,tfin
     if (rank.eq.0) write(*,*) "Time step",t,"of",tfin
     call cpu_time(times)
 
+   call nvtxStartRange("Phase-field",1)
    !########################################################################################################################################
    ! START STEP 4: PHASE-FIELD SOLVER (EXPLICIT)
    !########################################################################################################################################
@@ -486,6 +488,7 @@ do t=tstart,tfin
    !########################################################################################################################################
    ! END STEP 4: PHASE-FIELD SOLVER (EXPLICIT)
    !########################################################################################################################################
+   call nvtxEndRange
 
 
 
